@@ -48,6 +48,7 @@ rom_clalli = $ffe7
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void intro_main()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+.export intro_main
 intro_main:
         sei
         lda #<irq_0
@@ -67,11 +68,11 @@ intro_main:
         lda #$28
         sta zp_screen_row1_lo
         lda #$1b
-        sta $d011                                       ;vic control register 1
+        sta $d011                                       ; vic control register 1
         lda #$32
-        sta $d012                                       ;raster position
+        sta $d012                                       ; raster position
         lda #$c8
-        sta $d016                                       ;vic control register 2
+        sta $d016                                       ; vic control register 2
 
         lda #<scroll_txt
         sta zp_scroll_addr_lo
@@ -79,11 +80,13 @@ intro_main:
         sta zp_scroll_addr_hi
 
         lda #$93
-        jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
+        jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
+
         lda #$00
-        sta $d020                                       ;border color
-        sta $d021                                       ;background color 0
-        lda #$01
+        sta $d020                                       ; border color
+        sta $d021                                       ; background color 0
+
+        lda #$01                                        ; screen color ram
         ldx #$00
 @l0:    sta $d800,x
         sta $d900,x
@@ -104,35 +107,47 @@ intro_main:
         dex
         bne @l1
 
-        lda #$7f
-        sta $d01d                                       ;sprites expand 2x horizontal (x)
-        lda #$00
-        sta $d027                                       ;sprite 0 color
-        sta $d028                                       ;sprite 1 color
-        sta $d029                                       ;sprite 2 color
-        sta $d02a                                       ;sprite 3 color
-        sta $d02b                                       ;sprite 4 color
+        lda #%00000000
+        sta $d01c                                       ; sprites multi-color mode select
 
-        lda #$7f
-        sta $d015                                       ;sprite display enable
+        lda #%01111111
+        sta $d01d                                       ; sprites expand 2x horizontal (x)
+
+        lda #$00
+        sta $d027                                       ; sprite 0 color
+        sta $d028                                       ; sprite 1 color
+        sta $d029                                       ; sprite 2 color
+        sta $d02a                                       ; sprite 3 color
+        sta $d02b                                       ; sprite 4 color
+        sta $d02c                                       ; sprite 5 color
+        sta $d02d                                       ; sprite 6 color
+
+        lda #%01111111
+        sta $d015                                       ; sprite display enable
 
         lda #$7a
-        sta $d001                                       ;sprite 0 y pos
-        sta $d003                                       ;sprite 1 y pos
-        sta $d005                                       ;sprite 2 y pos
-        sta $d007                                       ;sprite 3 y pos
-        sta $d009                                       ;sprite 4 y pos
+        sta $d001                                       ; sprite 0 y pos
+        sta $d003                                       ; sprite 1 y pos
+        sta $d005                                       ; sprite 2 y pos
+        sta $d007                                       ; sprite 3 y pos
+        sta $d009                                       ; sprite 4 y pos
+        sta $d00b                                       ; sprite 5 y pos
+        sta $d00d                                       ; sprite 6 y pos
 
         lda #$40
-        sta $d000                                       ;sprite 0 x pos
+        sta $d000                                       ; sprite 0 x pos
         lda #$70
-        sta $d002                                       ;sprite 1 x pos
+        sta $d002                                       ; sprite 1 x pos
         lda #$a0
-        sta $d004                                       ;sprite 2 x pos
+        sta $d004                                       ; sprite 2 x pos
         lda #$cf
-        sta $d006                                       ;sprite 3 x pos
+        sta $d006                                       ; sprite 3 x pos
         lda #$ff
-        sta $d008                                       ;sprite 4 x pos
+        sta $d008                                       ; sprite 4 x pos
+        lda #$20
+        sta $d00a                                       ; sprite 5 x pos
+        lda #$20
+        sta $d00c                                       ; sprite 6 x pos
 
         lda #00
         sta zp_scroll_mode
@@ -148,7 +163,23 @@ intro_main:
         sta $07f8                                       ; sprite pointers
         sta $07f9
         sta $07fa
-        jmp j2980
+        sta $07fb
+        sta $07fe
+        sta $07fc
+        sta $07fd
+
+        lda #<p29cd
+        sta $0a00                                       ; basic restart routine
+        lda #>p29cd
+        sta $0a01
+
+        lda #%01000000
+        sta $d010                                       ; sprites 0-7 msb of x coordinate
+
+        lda #$0b
+        jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
+
+j29bd:  jmp j29bd
 
 b28cd:  jmp check_space                                 ; mode = 4
 
@@ -264,33 +295,6 @@ b2970:  jsr s2954
         sta zp_scroll_mode
         rts
 
-j2980:  lda #<p29cd
-        sta $0a00                                       ; basic restart routine
-        lda #>p29cd
-        sta $0a01
-
-        lda #$3e                                        ; sprite pointers: points to $f80
-        nop
-        sta $07fb
-        sta $07fe
-        sta $07fc
-        sta $07fd
-
-        lda #$7a
-        sta $d00b                                       ;sprite 5 y pos
-        sta $d00d                                       ;sprite 6 y pos
-        lda #$20
-        sta $d00a                                       ;sprite 5 x pos
-        lda #$20
-        sta $d00c                                       ;sprite 6 x pos
-        lda #$00
-        sta $d02c                                       ;sprite 5 color
-        sta $d02d                                       ;sprite 6 color
-        lda #$40
-        sta $d010                                       ;sprites 0-7 msb of x coordinate
-        lda #$0b
-        jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
-j29bd:  jmp j29bd
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void check_space()
@@ -397,7 +401,10 @@ colors_fade_in:
 
 label_0:
                 ;0123456789012345678901234567890123456789
-        scrcode "   erasoft tambien crackea sus juegos   "
+        ; says  "   erasoft tambien crackea sus juegos   "
+        .incbin "therace-legend-map.bin"
 
 scroll_txt:
         .incbin "therace-scroll-map.bin"
+        .byte $20
+        .byte 0

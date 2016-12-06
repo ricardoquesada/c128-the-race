@@ -9,10 +9,13 @@ X128 = x128
 all: res bin
 bin: therace d71 run
 
-SRC=src/intro.s src/cracktro.s src/music.s
+SRC=src/main.s src/intro.s src/cracktro.s src/music.s
 
 res:
 	echo "Compressing resources..."
+	-cp res/therace-legend-map.bin src
+	-cp res/therace-level1-charset.bin src
+	-cp res/therace-level1-map.bin src
 
 therace: ${SRC}
 	echo "Compiling..."

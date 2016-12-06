@@ -7,6 +7,11 @@
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; Imports
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+.import intro_main
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; Macros
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 .macpack cbm                            ; adds support for scrcode
@@ -24,21 +29,22 @@
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 zp_scroll_addr_lo = $6a
 zp_scroll_addr_hi = $6b
-zp_space_pressed = $fa
 zp_color_speed  = $fb
 zp_raster_pos_bottom = $fd
 zp_raster_pos_top = $fe
 zp_scroll_speed = $ff
 
-;
-; **** predefined labels ****
-;
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; Predefined labels
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 rom_bsouti = $ffd2
 rom_jsetmsg = $ff90
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; cracktro_main
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+.export cracktro_main
 cracktro_main:
         lda #$00                                        ; no kernal messages displayed
         jsr rom_jsetmsg                                 ; Control OS Messages
@@ -56,18 +62,18 @@ cracktro_main:
         lda #$00
         sta zp_color_speed                              ; color_scroll_speed
         sta zp_scroll_speed                             ; scroll speed
-        lda #$08
-        sta zp_space_pressed                            ; spaced pressed ?
 
         lda #$ff
         sta $d015                                       ; sprite display enable
 
         lda #$00
+
         ldx #$00
 @l0:    sta $d027,x                                     ; sprite 0 color
         inx
         cpx #$08
         bne @l0
+
         lda #$ff
         sta $d01c                                       ; sprites multi-color mode select
         lda #$01
@@ -119,10 +125,19 @@ main_loop:
         sta $a1                                         ; so reset jiffy time
         sta $a2
 
-        lda #$00
-        sta zp_space_pressed                            ; space pressed
         lda #$ea                                        ; $ea = nop
         sta a14b0
+
+@l0:    lda $a2                                         ; jiffy time: lo
+        cmp #$a0                                        ; turnoff irq?
+        bne @l0
+
+        sei
+        lda #<$fa65
+        sta $0314                                       ; set IRQ vector
+        lda #>$fa65
+        sta $0315
+        cli
         rts
 
 
@@ -327,29 +342,12 @@ animate:
         nop
         nop
         nop
-        jsr check_space_pressed
         jsr scroll_top_colors
         jsr update_bottom_raster_position
         jsr update_top_raster_position
         jsr do_the_scroll
         jmp update_top_colors
 
-check_space_pressed:
-        lda zp_space_pressed                            ; space pressed
-        beq @l0
-@l1:    rts
-
-@l0:    lda $a2                                         ; jiffy time: lo
-        cmp #$a0                                        ; turnoff irq?
-        bne @l1
-
-        sei
-        lda #<$fa65
-        sta $0314                                       ; set IRQ vector
-        lda #>$fa65
-        sta $0315
-        cli
-        rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void scroll_top_colors()
