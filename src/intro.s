@@ -16,36 +16,39 @@
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 .include "c64.inc"                      ; c64 constants
 
-.segment "INIT"
-.segment "STARTUP"
-
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; ZP ABSOLUTE ADRESSES
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 zp_scroll_addr_lo = $6a
 zp_scroll_addr_hi = $6b
-zp_space_pressed = $fa
-zp_color_speed  = $fb
-zp_raster_pos_bottom = $fd
-zp_raster_pos_top = $fe
-zp_scroll_speed = $ff
-
-;
-; **** predefined labels ****
-;
-rom_bsouti = $ffd2
-rom_jsetmsg = $ff90
+zp_scroll_mode = $6c
+zp_fade_out_idx = $6d
+zp_fade_in_idx = $6e
+zp_scroll_speed = $fa                                   ; used in vic
+zp_screen_row0_lo = $fb
+zp_screen_row0_hi = $fc
+zp_screen_row1_lo = $fd
+zp_screen_row1_hi = $fe
+zp_delay = $ff
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; intro_main
+; PREDEFINED LABELS
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+rom_cint = $ff81
+rom_ioinit = $ff84
+rom_restor = $ff8a
+rom_key = $ff9f
+rom_closei = $ffc3
+rom_bsouti = $ffd2
+rom_clalli = $ffe7
+
+.segment "INIT"
+.segment "STARTUP"
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void intro_main()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 intro_main:
-        lda #$00                                        ; no kernal messages displayed
-        jsr rom_jsetmsg                                 ; Control OS Messages
-
-        lda #%11000000                                  ; no VCD charset, disable screen editor
-        sta $0a04                                       ; init status
-
         sei
         lda #<irq_0
         sta $0314
@@ -53,663 +56,348 @@ intro_main:
         sta $0315
         cli
 
+        lda #$07
+        sta zp_scroll_speed
         lda #$00
-        sta zp_color_speed                              ; color_scroll_speed
-        sta zp_scroll_speed                             ; scroll speed
-        lda #$08
-        sta zp_space_pressed                            ; spaced pressed ?
-
-        lda #$ff
-        sta $d015                                       ; sprite display enable
-
-        lda #$00
-        ldx #$00
-@l0:    sta $d027,x                                     ; sprite 0 color
-        inx
-        cpx #$08
-        bne @l0
-        lda #$ff
-        sta $d01c                                       ; sprites multi-color mode select
-        lda #$01
-        sta $d025                                       ; sprite multi-color register 0
-        sta $d026                                       ; sprite multi-color register 1
-
-        ldx #$00
-@l1:    lda sprite_default_values,x
-        sta sprite_runtime_values,x
-        inx
-        cpx #$28
-        bne @l1
-
-        lda #$4a                                        ; $4a = lsr
-        sta a14b0
-        lda #$93
-        jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
-
-        ldx #$07
-@l2:    lda sprite_ptrs,x
-        sta $07f8,x                                     ; sprite pointers
-        dex
-        bpl @l2
-
-        jsr init_screen
-
-        ldx #$00
-@l3:    lda labels_2,x
-        sta $0400,x
-        inx
-        cpx #$28
-        bne @l3
-
-        ldx #$00
-@l4:    lda #$01
-        sta $d800,x                                     ; color RAM
-        lda #$00
-        sta $d900,x
-        sta $da00,x
-        inx
-        bne @l4
-
-main_loop:
-        lda $dc01                                       ; cia1: data port register b
-        cmp #$ef
-        bne main_loop
-
-        lda #$00                                        ; space pressed...
-        sta $a1                                         ; so reset jiffy time
-        sta $a2
-
-        lda #$00
-        sta zp_space_pressed                            ; space pressed
-        lda #$ea                                        ; $ea = nop
-        sta a14b0
-        rts
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void init_screen()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-init_screen:
-        sei
-        lda #$00
-        sta $dc0e                               ; cia1: cia control register a
-        lda $d011                               ; vic control register 1
-        and #$7f
-        sta $d011                               ; vic control register 1
+        sta zp_delay
+        sta zp_screen_row0_lo
+        lda #$04
+        sta zp_screen_row0_hi
+        sta zp_screen_row1_hi
+        lda #$28
+        sta zp_screen_row1_lo
+        lda #$1b
+        sta $d011                                       ;vic control register 1
         lda #$32
-        sta $d012                               ; raster position
-        lda #$01
-        sta $d01a                               ; vic interrupt mask register (imr)
-        lda #$01
-        sta $dc0d                               ; cia1: cia interrupt control register
-        cli
-
-        ldx #$00                                ; display "cracked by..."
-@l0:    lda labels_0,x
-        sta $0400 + 40 * 7,x
-        inx
-        bne @l0
-
-        ldx #$0c
-@l1:    lda labels_1,x
-        sta $0400 + 40 * 2 + 13,x               ; display "erasoft '92"
-        dex
-        bpl @l1
-
-        lda #$50
-        sta zp_raster_pos_top
-        lda #$b0
-        sta zp_raster_pos_bottom
-
-        lda #$e6                                ; $e6 = inc
-        sta a17ed
-        lda #$c6                                ; $c6 = dec
-        sta a16bd                               ; inc/dec raster position
+        sta $d012                                       ;raster position
+        lda #$c8
+        sta $d016                                       ;vic control register 2
 
         lda #<scroll_txt
         sta zp_scroll_addr_lo
         lda #>scroll_txt
         sta zp_scroll_addr_hi
-        rts
 
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; irq_0
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_0:
-        nop
-        nop
-        nop
-        nop
-
-        lda zp_raster_pos_top
-        sta $d012                               ; raster position
-
-        lda #$c8
-        sta $d016                               ; vic control register 2
-
-        nop
-
-        ldx #$00
-@l0:    lda #$01
-        sta $d021                               ; background color 0
-        sta $d020                               ; border color
-        inx
-        cpx #$04
-        bne @l0
-
+        lda #$93
+        jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
         lda #$00
-        sta $d020                               ; border color
-        sta $d021                               ; background color 0
-        lda #<irq_1
-        sta $0314
-        lda #>irq_1
-        sta $0315
-
-        jsr animate
-
-        lda $d019                               ; vic interrupt request register (irr)
-        sta $d019                               ; vic interrupt request register (irr)
-
-        jmp $fa65                               ; $fa65 (irq) normal entry
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; irq_1
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_1:
-        nop
-        nop
-        nop
-        nop
-
-        lda zp_raster_pos_bottom
-        sta $d012                               ;raster position
-
-        nop
-        nop
-        nop
-        nop
-        nop
-
-        ldx #$00
-@l0:    lda colors,x
-        sta $d021                               ;background color 0
-        sta $d020                               ;border color
-        inx
-        cpx #$10
-        bne @l0
-
+        sta $d020                                       ;border color
+        sta $d021                                       ;background color 0
         lda #$01
-        sta $d020                               ;border color
-        sta $d021                               ;background color 0
-
-        lda #<irq_2
-        sta $0314
-        lda #>irq_2
-        sta $0315
-
-        jmp irq_exit
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; irq_2
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_2:
-        lda #$d6
-        sta $d012                               ; raster position
-
-        nop
-        nop
-        nop
-        nop
-        nop
-
-        ldx #$10
-@l0:    lda colors,x
-        sta $d021                               ; background color 0
-        sta $d020                               ; border color
+        ldx #$00
+@l0:    sta $d800,x
+        sta $d900,x
+        sta $da00,x
+        sta $db00,x
         dex
-        bpl @l0
+        bne @l0
 
-        lda #$00
-        sta $d020                               ; border color
-        sta $d021                               ; background color 0
+        lda #$c0                                        ; no vcd charset, no editor
+        sta $0a04                                       ; init status
 
+        lda #$ff
+        ldx #$00
+@l1:    sta $0f80,x                                     ; black sprite
         nop
         nop
         nop
-        nop
-        nop
-
-        lda #<irq_3
-        sta $0314
-        lda #>irq_3
-        sta $0315
-
-irq_exit:
-        lda $d019                               ; vic interrupt request register (irr)
-        sta $d019                               ; vic interrupt request register (irr)
-        jmp $ff33                               ; $ff33 return from interrupt
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; irq_3
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_3:
-        lda #$e4
-        sta $d012                               ; raster position
-
-        ldx #$04
-@l0:    lda #$01
-        sta $d020                               ; border color
-        sta $d021                               ; background color 0
         dex
-        bpl @l0
-
-        lda #$02
-        sta $d020                               ; border color
-        sta $d021                               ; background color 0
-
-        lda zp_scroll_speed
-        sta $d016                               ; vic control register 2
-
-        lda #<irq_0
-        sta $0314
-        lda #>irq_0
-        sta $0315
-
-        jmp irq_exit
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void animate()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-animate:
-        jsr update_sprites
-        nop
-        nop
-        nop
-        jsr check_space_pressed
-        jsr scroll_top_colors
-        jsr update_bottom_raster_position
-        jsr update_top_raster_position
-        jsr do_the_scroll
-        jmp update_top_colors
-
-check_space_pressed:
-        lda zp_space_pressed                            ; space pressed
-        beq @l0
-@l1:    rts
-
-@l0:    lda $a2                                         ; jiffy time: lo
-        cmp #$a0                                        ; turnoff irq?
         bne @l1
 
-        sei
-        lda #<$fa65
-        sta $0314                                       ; set IRQ vector
-        lda #>$fa65
-        sta $0315
-        cli
+        lda #$7f
+        sta $d01d                                       ;sprites expand 2x horizontal (x)
+        lda #$00
+        sta $d027                                       ;sprite 0 color
+        sta $d028                                       ;sprite 1 color
+        sta $d029                                       ;sprite 2 color
+        sta $d02a                                       ;sprite 3 color
+        sta $d02b                                       ;sprite 4 color
+
+        lda #$7f
+        sta $d015                                       ;sprite display enable
+
+        lda #$7a
+        sta $d001                                       ;sprite 0 y pos
+        sta $d003                                       ;sprite 1 y pos
+        sta $d005                                       ;sprite 2 y pos
+        sta $d007                                       ;sprite 3 y pos
+        sta $d009                                       ;sprite 4 y pos
+
+        lda #$40
+        sta $d000                                       ;sprite 0 x pos
+        lda #$70
+        sta $d002                                       ;sprite 1 x pos
+        lda #$a0
+        sta $d004                                       ;sprite 2 x pos
+        lda #$cf
+        sta $d006                                       ;sprite 3 x pos
+        lda #$ff
+        sta $d008                                       ;sprite 4 x pos
+
+        lda #00
+        sta zp_scroll_mode
+        lda #$0f
+        sta zp_fade_out_idx
+        lda #$08
+        sta zp_fade_in_idx                              ; color for scroll row
+
+        lda #%00011110                                  ; charset = $3800, screen = $400
+        sta $0a2c                                       ; shadow for $d018
+
+        lda #$3e                                        ; points to $f80
+        sta $07f8                                       ; sprite pointers
+        sta $07f9
+        sta $07fa
+        jmp j2980
+
+b28cd:  jmp check_space                                 ; mode = 4
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void irq_0()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+irq_0:
+        lda zp_scroll_mode
+        beq b28e7                                       ; 0 = normal scroll
+        cmp #$01
+        beq b28ed                                       ; 1 = fade out
+        cmp #$02
+        beq b28f3                                       ; 2 = fade in
+        cmp #$03
+        beq b28f9                                       ; 3 = unused
+        cmp #$04
+        beq b28cd                                       ; 4 = check space
+        jmp $fa65                                       ;$fa65 (irq) normal entry
+
+b28e7:  jsr do_scroll                                   ; mode = 0
+        jmp $fa65
+
+b28ed:  jsr do_fade_out                                 ; mode = 1
+        jmp $fa65
+
+b28f3:  jsr do_fade_in                                  ; mode = 2
+        jmp $fa65
+
+b28f9:  jsr $2a50                                       ; mode = 3
+        jmp $fa65                                       ; XXX: $2a50 is garbage
+
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void do_scroll()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+do_scroll:
+        lda zp_delay
+        beq b2907
+        dec zp_delay
         rts
 
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void scroll_top_colors()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-scroll_top_colors:
-        lda zp_color_speed
-        beq @l1
-        dec zp_color_speed
-        rts
-
-@l1:    lda #$01
-        sta zp_color_speed
-        lda colors
-        pha
-
-        ldx #$00
-@l0:    lda colors+1,x
-        sta colors,x
-        inx
-        cpx #$3f
-        bne @l0
-
-        pla
-        sta colors + $3f
-        rts
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void update_top_colors()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-update_top_colors:
-        ldy #$00
-        ldx #$27
-@l0:    lda colors,x
-        sta $d800,x
-        sta $d800 + 40 * 21,y
-        iny
-        dex
-        bpl @l0
-        rts
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void update_bottom_raster_position()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-update_bottom_raster_position:
-        ldx #$01
-a16bd:  dec zp_raster_pos_bottom                        ; self modifying: inc/dec
-        lda zp_raster_pos_bottom
-        cmp #$85
-        beq @l0
-        cmp #$b0
-        beq @l0
-        dex
-        bne a16bd
-        rts
-@l0:
-        lda a16bd                                       ; switch between $e6 / $c6
-        eor #$20                                        ; dec / inc
-        sta a16bd
-        rts
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void update_top_raster_position()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-update_top_raster_position:
-        ldx #$01
-a17ed:  inc zp_raster_pos_top                           ; self modifying: inc/dec
-        lda zp_raster_pos_top
-        cmp #$50
-        beq @l0
-        cmp #$7b
-        beq @l0
-        dex
-        bne a17ed
-        rts
-
-@l0:    lda a17ed                                       ; switch between inc/dec
-        eor #$20
-        sta a17ed
-        rts
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void do_the_scroll()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-do_the_scroll:
-        ldx #$02
-@l0:    txa
-        pha
-        jsr scroll_it
-        pla
-        tax
-        dex
-        bpl @l0
-        rts
-
-scroll_it:
-        dec zp_scroll_speed                             ; scroll speed
+b2907:  lda #$08
+        sta zp_delay
+        lda zp_scroll_speed
+        and #$17
+        ora #$10
+        sta $d011                                       ;vic control register 1
         lda zp_scroll_speed
         cmp #$ff
-        beq @l1
+        beq b291d
+        dec zp_scroll_speed
         rts
 
-@l1:    lda #$07                                        ; reset speed counter
+b291d:  lda #$07
         sta zp_scroll_speed
 
-        ldx #$00
-@l2:    lda $0400 + 40 * 21 + 1,x                       ; scroll
-        sta $0400 + 40 * 21,x
-        inx
-        cpx #$28
-        bne @l2
+        ldx #$08
+@l1:    ldy #$27
+@l0:    lda (zp_screen_row1_lo),y
+        sta (zp_screen_row0_lo),y
+        dey
+        bpl @l0
 
-        ldy #$00
-        lda (zp_scroll_addr_lo),y
-        beq restart_scroll
-        sta $0400 + 40 * 21 + 39
-
-        lda zp_scroll_addr_lo                           ; increment scroll ptr by 1
         clc
-        adc #$01
+        lda zp_screen_row1_lo
+        adc #$28
+        sta zp_screen_row1_lo
+        lda zp_screen_row1_hi
+        adc #$00
+        sta zp_screen_row1_hi
+
+        clc
+        lda zp_screen_row0_lo
+        adc #$28
+        sta zp_screen_row0_lo
+        lda zp_screen_row0_hi
+        adc #$00
+        sta zp_screen_row0_hi
+
+        dex
+        bpl @l1
+
+        ldy #$27
+@l2:    lda (zp_scroll_addr_lo),y
+        beq b2970
+        sta (zp_screen_row0_lo),y
+        dey
+        bpl @l2
+
+s2954:  lda #<$0400
+        sta zp_screen_row0_lo
+        lda #>$0400
+        sta zp_screen_row0_hi
+        sta zp_screen_row1_hi
+        lda #$28
+        sta zp_screen_row1_lo
+
+        clc
+        lda zp_scroll_addr_lo
+        adc #$28
         sta zp_scroll_addr_lo
         lda zp_scroll_addr_hi
         adc #$00
         sta zp_scroll_addr_hi
-
         rts
 
-restart_scroll:
-        lda #<scroll_txt
+b2970:  jsr s2954
+        lda #<$1600                                     ; XXX: should be <scroll_txt
         sta zp_scroll_addr_lo
-        lda #>scroll_txt
+        lda #>$1600                                     ; XXX: should be >scroll_txt
         sta zp_scroll_addr_hi
+        lda #$01
+        sta zp_scroll_mode
         rts
 
+j2980:  lda #<p29cd
+        sta $0a00                                       ; basic restart routine
+        lda #>p29cd
+        sta $0a01
+
+        lda #$3e                                        ; sprite pointers: points to $f80
+        nop
+        sta $07fb
+        sta $07fe
+        sta $07fc
+        sta $07fd
+
+        lda #$7a
+        sta $d00b                                       ;sprite 5 y pos
+        sta $d00d                                       ;sprite 6 y pos
+        lda #$20
+        sta $d00a                                       ;sprite 5 x pos
+        lda #$20
+        sta $d00c                                       ;sprite 6 x pos
+        lda #$00
+        sta $d02c                                       ;sprite 5 color
+        sta $d02d                                       ;sprite 6 color
+        lda #$40
+        sta $d010                                       ;sprites 0-7 msb of x coordinate
+        lda #$0b
+        jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
+j29bd:  jmp j29bd
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void update_sprites()
+; void check_space()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-update_sprites:
-        ldx #7
+check_space:
+        lda $dc01
+        and #$10
+        beq @l0
+        jmp $fa65                                       ;$fa65 (irq) normal entry
 
-sprites_loop:
-        lda sprite_x_dir,x                              ; left or right ?
-        bne do_left
+@l0:
+p29cd:
+        sei
 
-                                                        ; do right
-        lda sprite_y,x                                  ; above or below midpoint ?
-        cmp #$80
-        bcc @l0                                         ; above midpoint
+        lda #<$fa65
+        sta $0315
+        lda #>$fa65
+        sta $0314
 
-        lda #$01                                        ; below midpoint
-        sta sprite_x_dir,x                              ; change direction. go left
-        lda #%00100000                                  ; ($20) and start deccel
-        sta sprite_y_vel,x
+        jsr rom_restor                                  ;$ff8a (jmp) restor restore vectors
+        jsr rom_ioinit                                  ;$ff84 (jmp) ioinit init i/o devices, ports & timers
+        jsr rom_cint                                    ;$ff81 (jmp) cint init editor & video chips
 
-@l0:    jsr set_sprite_in_vic
-        jmp sprite_go_right
+        cli
 
-sprite_go_right:
-        clc
-        lda sprite_x_lsb,x                              ; x++
-        adc #$01                                        ; sprite go right
-        sta sprite_x_lsb,x
-        bcc @l2
-        lda sprite_x_msb,x                              ; update x MSB if needed
-        eor #$01
-        sta sprite_x_msb,x
+        ;jmp game_init
+        jmp intro_main
 
-@l2:    nop
-        nop
-        nop
-        nop
-        nop
-        lda sprite_y_vel,x                              ; positive or negative vel?
-        bmi @l0
 
-        lsr                                             ; sprite go down (positive speed)
-        lsr                                             ; y += speed / 8
-        lsr
-        clc
-        adc sprite_y,x
-        sta sprite_y,x
-        jmp @l1
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void do_fade_out()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+do_fade_out:
+        lda zp_delay
+        beq @l3
+        dec zp_delay
+        rts
 
-@l0:    eor #$ff                                        ; sprite go up (negative speed)
-        lsr                                             ; y -= speed / 8
-        lsr
-        lsr
-        eor #$ff
-        clc
-        adc sprite_y,x
-        sta sprite_y,x
-
-@l1:    lda sprite_y_vel,x                              ; vel_y++
-        clc
-        adc #$01
-        sta sprite_y_vel,x
-
+@l3:    lda #$10
+        sta zp_delay
+        ldx zp_fade_out_idx
+        lda colors_fade_out,x
+        ldy #$00
+@l2:    sta $d800,y
+        sta $d900,y
+        dey
+        bne @l2
         dex
-        bpl sprites_loop
+        stx zp_fade_out_idx
+        beq @l1
         rts
 
+@l1:    lda #$00
+        sta $f1
+        lda #$93
+        jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
 
-do_left:
-        lda sprite_y,x
-        cmp #$80                                        ; midpoint: above or below ?
-        bcs @l0                                         ; below midpoint
-
-        lda #$00                                        ; above midpoint
-        sta sprite_x_dir,x                              ; so change direction. go right
-        lda #%11100111                                  ; ($e7) and start deccel
-        sta sprite_y_vel,x
-
-        nop
-@l0:    jsr set_sprite_in_vic
-
-        nop
-        nop
-        nop
-
-        clc
-        lda sprite_x_lsb,x                              ; sprite go left
-        adc #$ff                                        ; x--
-        sta sprite_x_lsb,x
-        bcs @l1
-        lda sprite_x_msb,x                              ; update MSB if needed
-        eor #$01
-        sta sprite_x_msb,x
-
-@l1:    lda sprite_y_vel,x
-        bmi b14bd
-
-a14b0 = *
-        lsr                                             ; self modifying: nop/lsr
-        lsr                                             ; sprite go down (positive speed)
-        lsr                                             ; y += speed / 8
-
-        clc
-        adc sprite_y,x
-        sta sprite_y,x
-        jmp j14cb
-
-b14bd:  eor #$ff                                        ; sprite go up (negative speed)
-        lsr                                             ; y -= speed / 8
-        lsr
-        lsr
-        eor #$ff
-        clc
-        adc sprite_y,x
-        sta sprite_y,x
-
-j14cb:  lda sprite_y_vel,x                              ; vel_y--
-        clc
-        adc #$ff
-        sta sprite_y_vel,x
-
+        ldx #$27
+@l0:    lda label_0,x
+        sta $0450,x
         dex
         bpl @l0
+
+        lda #$02
+        sta zp_scroll_mode
         rts
 
-@l0:    jmp sprites_loop
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void do_fade_in()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+do_fade_in:
+        lda zp_delay
+        beq @l0
+        dec zp_delay
+        rts
+@l0:
+        lda #$10
+        sta zp_delay
+        ldx zp_fade_in_idx
+        lda colors_fade_in,x
+        ldy #$00
+@l1:    sta $d800,y
+        sta $d900,y
+        dey
+        bne @l1
 
-set_sprite_in_vic:
-        txa
-        asl
-        tay
-        lda sprite_x_lsb,x
-        sta $d000,y                                     ; sprite 0 x pos
-        lda sprite_y,x
-        sta $d001,y                                     ; sprite 0 y pos
-
-        lda sprite_x_msb + 7
-        asl
-        ora sprite_x_msb + 6
-        asl
-        ora sprite_x_msb + 5
-        asl
-        ora sprite_x_msb + 4
-        asl
-        ora sprite_x_msb + 3
-        asl
-        ora sprite_x_msb + 2
-        asl
-        ora sprite_x_msb + 1
-        asl
-        ora sprite_x_msb + 0
-        sta $d010                               ; sprites 0-7 msb of x coordinate
+        dex
+        stx zp_fade_in_idx
+        cpx #$00
+        beq @l2
         rts
 
-;hexdump -e '".byte " 16/1 "$%02x," "\n"' scroll.txt
-; dumped used 'ii' from vice
-scroll_txt:
-        scrcode "hola gente   para empezar el dia contento que hay que hacer?...   si tu no lo sabes quien lo va a saber?..."
-        scrcode "pero la pregunta  no empieza por ahi si no por la mente... los dejo porque me voy a  comer"
-        scrcode "... erasoft'92... space now!...         "
-        scrcode "@"
-        scrcode "que       que       que esta re fuerte, y a todos los nabos que pierden el tiempo lellendo scrolls... "
-        scrcode " space now!...                     @"
+@l2:    lda #$04
+        sta zp_scroll_mode
+        rts
 
-labels_0:
+colors_fade_out:
+        .byte $00, $00, $00, $00,  $0f, $01, $01, $01
+        .byte $01, $01, $01, $01,  $01, $01, $01, $01
+
+colors_fade_in:
+        .byte $00, $01, $0f, $00,  $00, $00, $00, $00
+        .byte $00, $00, $00, $00,  $02, $03, $04, $01
+
+label_0:
                 ;0123456789012345678901234567890123456789
-        scrcode "                the race                "
-        scrcode "          was written,composed          "
-        scrcode "  cracked,broken,busted,performed and   "
-        scrcode "           erasofted by the             "
-        scrcode "                soldier                 "
-        scrcode "            ricardo quesada             "
-        scrcode "                "
+        scrcode "   erasoft tambien crackea sus juegos   "
 
-labels_1:
-        scrcode "erasoft 1992   "
-
-labels_2:
-        scrcode "        this game was erasofted        "
-        ; unused ??
-        .byte $20, $20, $20, $20,  $20, $20, $20, $20
-        .byte $00, $00, $00, $00,  $00, $00, $00, $00
-
-sprite_runtime_values:
-sprite_x_dir:
-        .byte $00, $01, $00, $00,  $01, $00, $01, $00
-sprite_x_lsb:
-        .byte $91, $a3, $d0, $e5,  $c8, $b9, $94, $7d
-sprite_x_msb:
-        .byte $00, $00, $00, $00,  $00, $00, $00, $00
-sprite_y:
-        .byte $fc, $00, $fc, $fc,  $00, $fc, $00, $fc
-sprite_y_vel:
-        .byte $e6, $21, $e6, $e6,  $21, $e6, $21, $e6
-
-sprite_default_values:
-        ; sprite x direction
-        .byte $00, $00, $00, $01,  $01, $01, $01, $01
-        ; sprite x lsb
-        .byte $7c, $9a, $df, $fa,  $cd, $b8, $7f, $5e
-        ; sprite x msb
-        .byte $00, $00, $00, $00,  $00, $00, $00, $00
-        ; sprite y
-        .byte $4e, $42, $58, $97,  $b8, $be, $ae, $91
-        ; sprite y vel
-        .byte $f6, $00, $17, $1c,  $0d, $06, $f3, $e8
-
-colors:
-        .byte $08, $08, $08, $02,  $02, $02, $02, $02
-        .byte $02, $02, $02, $01,  $01, $01, $01, $01
-        .byte $01, $01, $01, $03,  $03, $03, $03, $03
-        .byte $03, $03, $04, $04,  $04, $04, $04, $04
-        .byte $04, $04, $04, $05,  $05, $05, $05, $05
-        .byte $05, $05, $05, $06,  $06, $06, $06, $06
-        .byte $06, $06, $07, $07,  $07, $07, $07, $07
-        .byte $07, $07, $07, $08,  $08, $08, $08, $08
-
-
-sprite_ptrs:
-        ; $c0 ->  $c0 * 64 = $3000
-        .byte $c5, $c6, $c7, $c0,  $c1, $c2, $c3, $c4
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; segment "SPRITES"
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-.segment "SPRITES"
-        .incbin "sprites.bin"
-
+scroll_txt:
+        .incbin "therace-scroll-map.bin"
