@@ -248,7 +248,7 @@ init_vars_p2:
         sta $ad
 
         ldx #$27
-@l0:    lda label_txt_p2,x
+@l0:    lda label_txt_p1,x
         sta $0400 + 40 * 14,x
         dex
         bpl @l0
@@ -444,10 +444,10 @@ s1500:  lda $ff
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 s15b0:  lda a1e00
-        bne b15b6
+        bne @l0
         rts
 
-b15b6:  jsr s1500
+@l0:    jsr s1500
         jsr s1600
         jsr s16d0
         jsr s1aa6
@@ -482,25 +482,25 @@ s1600:  lda $dc00                                       ;cia1: data port registe
 @l0:    lda $1b
         bne @l1
 
-        lda $dc00    ;cia1: data port register a
+        lda $dc00                                       ;cia1: data port register a
         and #$04
         beq b1639
 
-        lda $dc00    ;cia1: data port register a
+        lda $dc00                                       ;cia1: data port register a
         and #$08
         beq b1660
 
-@l1:    lda $dc00    ;cia1: data port register a
+@l1:    lda $dc00                                       ;cia1: data port register a
         and #$10
         beq b15e0
 
         lda #$01
         sta $1c
-j162a:  lda $dc00    ;cia1: data port register a
+j162a:  lda $dc00                                       ;cia1: data port register a
         and #$01
         beq b1697
 
-        lda $dc00    ;cia1: data port register a
+        lda $dc00                                       ;cia1: data port register a
         and #$02
         beq b1687
 j1638:  rts
@@ -537,33 +537,33 @@ b1672:  lda $0b01
         inc $05b2
         jmp b166b
 
-b1687:  lda $d001    ;sprite 0 y pos
+b1687:  lda $d001                                       ;sprite 0 y pos
         cmp #$7a
         bcs b169e
 
 b168e:  ldx $1c
-@l0:    inc $d001    ;sprite 0 y pos
+@l0:    inc $d001                                       ;sprite 0 y pos
         dex
         bne @l0
         rts
 
-b1697:  lda $d001    ;sprite 0 y pos
+b1697:  lda $d001                                       ;sprite 0 y pos
         cmp #$3a
         bcc b168e
 
 b169e:  ldx $1c
-@l0:    dec $d001    ;sprite 0 y pos
+@l0:    dec $d001                                       ;sprite 0 y pos
         dex
         bne @l0
         rts
 
-s16aa:  lda $d019    ;vic interrupt request register (irr)
+s16aa:  lda $d019                                       ;vic interrupt request register (irr)
         and #$02
         bne b16ba
 
         lda #$01
-        sta $d019    ;vic interrupt request register (irr)
-        lda $d01f    ;sprite to background collision detect
+        sta $d019                                       ;vic interrupt request register (irr)
+        lda $d01f                                       ;sprite to background collision detect
         rts
 
 b16ba:  jmp j1940
@@ -675,7 +675,7 @@ s1700:  lda $af
 
 @l8:    lda #$00
         sta $ad
-        inc $d006    ;sprite 3 x pos
+        inc $d006                                       ;sprite 3 x pos
         rts
 
 @l9:    lda #$01
@@ -705,7 +705,7 @@ b17e0:  lda #$02
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1800:  lda $dc01    ;cia1: data port register b
+s1800:  lda $dc01                                       ;cia1: data port register b
         and #$0c
         cmp #$0c
         bne b180d
@@ -714,22 +714,22 @@ s1800:  lda $dc01    ;cia1: data port register b
 
 b180d:  lda $1d
         bne b181f
-        lda $dc01    ;cia1: data port register b
+        lda $dc01                                       ;cia1: data port register b
         and #$04
         beq b1839
 
-f1818:  lda $dc01    ;cia1: data port register b
+f1818:  lda $dc01                                       ;cia1: data port register b
         and #$08
         beq b1860
-b181f:  lda $dc01    ;cia1: data port register b
+b181f:  lda $dc01                                       ;cia1: data port register b
         and #$10
         beq b17e0
         lda #$01
         sta $1e
-j182a:  lda $dc01    ;cia1: data port register b
+j182a:  lda $dc01                                       ;cia1: data port register b
         and #$01
         beq b1897
-        lda $dc01    ;cia1: data port register b
+        lda $dc01                                       ;cia1: data port register b
         and #$02
         beq b1887
 j1838:  rts
@@ -764,20 +764,20 @@ b1872:  lda $0b03
         inc $0652
         jmp b186b
 
-b1887:  lda $d003    ;sprite 1 y pos
+b1887:  lda $d003                                       ;sprite 1 y pos
         cmp #$f0
         bcs b189e
 b188e:  ldx $1e
-b1890:  inc $d003    ;sprite 1 y pos
+b1890:  inc $d003                                       ;sprite 1 y pos
         dex
         bne b1890
         rts
 
-b1897:  lda $d003    ;sprite 1 y pos
+b1897:  lda $d003                                       ;sprite 1 y pos
         cmp #$af
         bcc b188e
 b189e:  ldx $1e
-b18a0:  dec $d003    ;sprite 1 y pos
+b18a0:  dec $d003                                       ;sprite 1 y pos
         dex
         bne b18a0
         rts
@@ -1081,23 +1081,23 @@ s1cac:  lda #$21
 
 j1cb6:
         lda #$00
-        sta $d404    ;voice 1: control register
+        sta $d404                                       ;voice 1: control register
         lda #$08
         sta a1cab
         lda #$00
-        sta $d400    ;voice 1: frequency control - low-byte
+        sta $d400                                       ;voice 1: frequency control - low-byte
         lda #$0f
-        sta $d401    ;voice 1: frequency control - high-byte
+        sta $d401                                       ;voice 1: frequency control - high-byte
         lda #$00
-        lda $d402    ;voice 1: pulse waveform width - low-byte
+        lda $d402                                       ;voice 1: pulse waveform width - low-byte
         lda #$01
-        lda $d403    ;voice 1: pulse waveform width - high-nybble
+        lda $d403                                       ;voice 1: pulse waveform width - high-nybble
         lda #$09
-        lda $d405    ;voice 1: attack / decay cycle control
+        lda $d405                                       ;voice 1: attack / decay cycle control
         lda #$01
-        lda $d406    ;voice 1: sustain / release cycle control
+        lda $d406                                       ;voice 1: sustain / release cycle control
         lda $b0
-        sta $d404    ;voice 1: control register
+        sta $d404                                       ;voice 1: control register
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1347,21 +1347,5 @@ a1e06:  .byte $12
 
 
 label_txt_p1:
-                ;0123456789012345678901234567890123456789
-        scrcode "     time:000  score:00000  speed:5     "
+        .incbin "therace-game-central-map.bin"
 
-        .byte $20, $20, $20, $20,  $20, $20, $20, $20,  $20, $20, $20, $70,  $43, $43, $43, $43
-        .byte $43, $43, $43, $43,  $43, $43, $43, $43,  $43, $43, $43, $43,  $6e, $20, $20, $20
-        .byte $20, $20, $20, $20,  $20, $20, $20, $20
-
-        .byte $20, $20, $20, $20,  $20, $20, $20, $20
-        .byte $20, $20, $20, $6b,  $43, $43, $43, $43,  $43, $43, $43, $43,  $43, $43, $43, $43
-        .byte $43, $43, $43, $43,  $73, $20, $20, $20,  $20, $20, $20, $20,  $20, $20, $20, $20
-
-        .byte $20, $20, $20, $20,  $20, $20, $20, $20,  $20, $20, $20, $6d,  $43, $43, $43, $43
-        .byte $43, $43, $43, $43,  $43, $43, $43, $43,  $43, $43, $43, $43,  $7d, $20, $20, $20
-        .byte $20, $20, $20, $20,  $20, $20, $20, $20
-
-label_txt_p2:
-                ;0123456789012345678901234567890123456789
-        scrcode "     time:000  score:00000  speed:5     "

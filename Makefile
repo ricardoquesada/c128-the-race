@@ -16,6 +16,7 @@ res:
 	-cp res/therace-legend-map.bin src
 	-cp res/therace-level1-charset.bin src
 	-cp res/therace-level1-map.bin src
+	-cp res/therace-game-central-map.bin src
 
 therace: ${SRC}
 	echo "Compiling..."
