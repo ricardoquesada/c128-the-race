@@ -8,6 +8,7 @@
 
 .import cracktro_main
 .import intro_main
+.import game_main
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; Macros
@@ -34,6 +35,10 @@
 ; void main()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main:
+        lda #$0e                                        ; out basic, in kernal, in vic (no charset)
+        sta $ff00
+
         jsr cracktro_main
         jsr intro_main
+        jsr game_main
         rts

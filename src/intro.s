@@ -34,13 +34,7 @@ zp_delay = $ff
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; PREDEFINED LABELS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-rom_cint = $ff81
-rom_ioinit = $ff84
-rom_restor = $ff8a
-rom_key = $ff9f
-rom_closei = $ffc3
 rom_bsouti = $ffd2
-rom_clalli = $ffe7
 
 .segment "INIT"
 .segment "STARTUP"
@@ -179,7 +173,10 @@ intro_main:
         lda #$0b
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
 
-j29bd:  jmp j29bd
+main_loop:
+        lda end_intro
+        beq main_loop
+        rts
 
 b28cd:  jmp check_space                                 ; mode = 4
 
@@ -307,21 +304,17 @@ check_space:
 
 @l0:
 p29cd:
+        lda #$01                                        ; finish intro
+        sta end_intro
+
         sei
-
-        lda #<$fa65
-        sta $0315
-        lda #>$fa65
-        sta $0314
-
-        jsr rom_restor                                  ;$ff8a (jmp) restor restore vectors
-        jsr rom_ioinit                                  ;$ff84 (jmp) ioinit init i/o devices, ports & timers
-        jsr rom_cint                                    ;$ff81 (jmp) cint init editor & video chips
-
+        ldx #<$fa65
+        ldy #>$fa65
+        stx $0314
+        sty $0315
         cli
 
-        ;jmp game_init
-        jmp intro_main
+        jmp $fa65                                       ;$fa65 (irq) normal entry
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -390,6 +383,12 @@ do_fade_in:
 @l2:    lda #$04
         sta zp_scroll_mode
         rts
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; variables
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+end_intro:
+        .byte 0                                         ; boolean: 1 if intro should end
 
 colors_fade_out:
         .byte $00, $00, $00, $00,  $0f, $01, $01, $01

@@ -9,7 +9,7 @@ X128 = x128
 all: res bin
 bin: therace d71 run
 
-SRC=src/main.s src/intro.s src/cracktro.s src/music.s
+SRC=src/main.s src/intro.s src/cracktro.s src/music.s src/game.s
 
 res:
 	echo "Compressing resources..."

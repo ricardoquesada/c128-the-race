@@ -138,6 +138,7 @@ main_loop:
         lda #>$fa65
         sta $0315
         cli
+
         rts
 
 
