@@ -29,10 +29,25 @@ zp_time_0_p1 = $21
 zp_time_1_p1 = $22
 zp_time_2_p1 = $23
 
+zp_game_over_p1 = $28
+zp_game_over_p2 = $29
+
 zp_time_delay_p2 = $94
 zp_time_0_p2 = $95
 zp_time_1_p2 = $96
 zp_time_2_p2 = $97
+
+zp_smooth_scroll_p1 = $fa
+zp_speed_lsb_p1 = $fb
+zp_speed_msb_p1 = $fc
+zp_mini_sprite_delay_p1 = $fd
+zp_finished_p1 = $fe
+
+zp_smooth_scroll_p2 = $aa
+zp_speed_lsb_p2 = $ab
+zp_speed_msb_p2 = $ac
+zp_mini_sprite_delay_p2 = $ad
+zp_finished_p2 = $ae
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; predefined labels
@@ -63,7 +78,7 @@ game_main:
         lda #$93
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
 
-j130a:
+game_restart:
         sei
         lda #$00
         sta $dc0e                                       ; cia1: cia control register a
@@ -181,7 +196,7 @@ init_vars_p1:
         sta $0b00
         sta $0b01
         sta $ff
-        sta $fe
+        sta zp_finished_p1
         sta $6a                                         ; ptr to map: LSB
         sta $6c
         sta $6e
@@ -222,15 +237,18 @@ init_vars_p1:
         sta $d005                                       ; sprite 2 y pos
 
         lda #$07
-        sta $fa
+        sta zp_smooth_scroll_p1
+
         lda #$00
-        sta $28
+        sta zp_game_over_p1
+        sta zp_mini_sprite_delay_p1
 
         ldx #$27
 @l0:    lda label_txt_p1,x
         sta $0400 + 40 * 10,x
         dex
         bpl @l0
+
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -281,7 +299,7 @@ init_vars_p2:
         lda #$00
         sta player_state_p2
         sta ready_to_start_p2
-        sta $ae
+        sta zp_finished_p2
 
         lda #$30
         sta zp_time_0_p2
@@ -289,15 +307,15 @@ init_vars_p2:
         sta zp_time_2_p2
 
         lda #$07
-        sta $aa
+        sta zp_smooth_scroll_p2
         lda #$80
         sta $d002                                       ;sprite 1 x pos
         lda #$d0
         sta $d003                                       ;sprite 1 y pos
 
         lda #$00
-        sta $29
-        sta $ad
+        sta zp_game_over_p2
+        sta zp_mini_sprite_delay_p2
 
         ldx #$27
 @l0:    lda label_txt_p1,x
@@ -305,11 +323,7 @@ init_vars_p2:
         dex
         bpl @l0
 
-        lda #$00
-        sta $fd
         rts
-
-
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void scroll_p1()
@@ -317,24 +331,28 @@ init_vars_p2:
 scroll_p1:
         lda $ff
         bne @l0
-        dec $fb
+
+        dec zp_speed_lsb_p1
         bmi @l1
 @l0:    rts
 
 @l1:    lda #$00
-        sta $fb
-@l2:    dec $fa
+        sta zp_speed_lsb_p1
+
+@l2:    dec zp_smooth_scroll_p1
         bmi @l3
-        dec $fc
+
+        dec zp_speed_msb_p1
         bpl @l2
+
         lda $0b00
-        sta $fb
+        sta zp_speed_lsb_p1
         lda $0b01
-        sta $fc
+        sta zp_speed_msb_p1
         rts
 
 @l3:    lda #$07
-        sta $fa
+        sta zp_smooth_scroll_p1
 
         ldx #$00
 @l4:    lda $0429,x
@@ -396,19 +414,19 @@ scroll_p1:
         lda ($26),y
         sta $0567,y
 
-        inc $fd
-        lda $fd
+        inc zp_mini_sprite_delay_p1
+        lda zp_mini_sprite_delay_p1
         cmp #$04
         beq @l9
         rts
 
 @l9:    lda #$00
-        sta $fd
+        sta zp_mini_sprite_delay_p1
         inc $d004                                       ; sprite 2 x pos
         rts
 
 @l8:    lda #$01
-        sta $fe
+        sta zp_finished_p1
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -430,10 +448,10 @@ update_p1:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 s15cc:  jsr check_start_p1
         jsr check_start_p2
-        jsr s1c10
-        jsr s1c60
-        jsr s1e50
-        jsr s1e75
+        jsr update_game_over_score_p1
+        jsr update_game_over_score_p2
+        jsr check_restart_p1
+        jsr check_restart_p2
         rts
 
 b15e0:
@@ -558,7 +576,7 @@ check_collisions:
         bne @l1
 
         lda p1_collision                                ; p1 collision ?
-        bne b1965
+        bne handle_p1_collision
 
 j1958:  lda p2_collision                                ; p2 collision ?
         bne handle_p2_collision
@@ -567,7 +585,25 @@ j195d:  lda #$02
         sta $d019                                       ; vic interrupt request register (irr)
         rts
 
-b1965:  jmp handle_p1_collision
+handle_p1_collision:
+        lda $ff
+        bne @l1
+        lda #$01
+        sta $ff
+
+        lda $05b2
+        and #$0f
+        tax
+@l0:    jsr inc_score_p1
+        dex
+        bne @l0
+
+        jsr play_collision_p1
+
+@l1:    lda #$00
+        sta p1_collision
+        jmp j1958
+
 
 handle_p2_collision:
         lda $af
@@ -582,7 +618,7 @@ handle_p2_collision:
         dex
         bne @l0
 
-        jsr play_collsion_p2
+        jsr play_collision_p2
 
 b1b46:  lda #$00
         sta p2_collision
@@ -598,11 +634,14 @@ s16d0:  lda $ff
 @l0:    lda $1c
         cmp #$02
         bne @l1
+
         lda p1_collision
         cmp #$00
         bne @l1
+
         lda #$00
         sta $ff
+
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -611,25 +650,28 @@ s16d0:  lda $ff
 scroll_p2:
         lda $af
         bne @l0
-        dec $ab
+
+        dec zp_speed_lsb_p2
         bmi @l1
 @l0:    rts
 
 @l1:    lda #$00
-        sta $ab
+        sta zp_speed_lsb_p2
 
-@l2:    dec $aa
+@l2:    dec zp_smooth_scroll_p2
         bmi @l3
-        dec $ac
+
+        dec zp_speed_msb_p2
         bpl @l2
+
         lda $0b02
-        sta $ab
+        sta zp_speed_lsb_p2
         lda $0b03
-        sta $ac
+        sta zp_speed_msb_p2
         rts
 
 @l3:    lda #$07
-        sta $aa
+        sta zp_smooth_scroll_p2
 
         ldx #$00
 @l4:    lda $0681,x
@@ -691,19 +733,19 @@ scroll_p2:
         lda ($8e),y
         sta $07bf,y
 
-        inc $ad
-        lda $ad
+        inc zp_mini_sprite_delay_p2
+        lda zp_mini_sprite_delay_p2
         cmp #$04
         beq @l8
         rts
 
 @l8:    lda #$00
-        sta $ad
+        sta zp_mini_sprite_delay_p2
         inc $d006                                       ;sprite 3 x pos
         rts
 
 @l9:    lda #$01
-        sta $ae
+        sta zp_finished_p2
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -870,8 +912,9 @@ update_time_p1:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 print_time_p1:
-        lda $fe
+        lda zp_finished_p1
         beq @l0
+
         lda #$00
         sta player_state_p1
         sta ready_to_start_p1
@@ -887,8 +930,9 @@ print_time_p1:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 print_time_p2:
-        lda $ae
+        lda zp_finished_p2
         beq @l0
+
         lda #$00
         sta player_state_p2
         sta ready_to_start_p2
@@ -900,28 +944,6 @@ print_time_p2:
         dex
         bpl @l1
         rts
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-handle_p1_collision:
-        lda $ff
-        bne b1b27
-        lda #$01
-        sta $ff
-
-        lda $05b2
-        and #$0f
-        tax
-@l0:    jsr inc_score_p1
-        dex
-        bne @l0
-
-        jsr play_collsion_p1
-
-b1b27:  lda #$00
-        sta p1_collision
-        jmp j1958
-
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1007,88 +1029,102 @@ inc_score_p2:
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void udpate_game_over_score_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1c10:  lda $fe
+update_game_over_score_p1:
+        lda zp_finished_p1
         bne @l0
         rts
 
-@l0:    lda $28
+@l0:    lda zp_game_over_p1
         bne b1c53
+
         dec $059c
         lda $059c
         cmp #$2f
         bne b1c57
+
         lda #$39
         sta $059c
         dec $059b
         lda $059b
         cmp #$2f
         bne b1c57
+
         lda #$39
         sta $059b
         dec $059a
         lda $059a
         cmp #$2f
         bne b1c57
+
         lda #$30
         sta $059a
         sta $059b
         sta $059c
+
         lda #$ff
-        sta $28
+        sta zp_game_over_p1
 b1c53:  rts
 
-b1c57:  jsr play_collsion_or_wait_p1
+b1c57:  jsr play_sound_or_wait_p1
         jsr inc_score_p1
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void udpate_game_over_score_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1c60:  lda $ae
+update_game_over_score_p2:
+        lda zp_finished_p2
         bne @l0
         rts
 
-@l0:    lda $29
+@l0:    lda zp_game_over_p2
         bne b1ca3
+
         dec $063c
         lda $063c
         cmp #$2f
         bne b1c92
+
         lda #$39
         sta $063c
         dec $063b
         lda $063b
         cmp #$2f
         bne b1c92
+
         lda #$39
         sta $063b
         dec $063a
         lda $063a
         cmp #$2f
 b1c92:  bne b1ca4
+
         lda #$30
         sta $063a
         sta $063b
         sta $063c
+
         lda #$ff
-        sta $29
+        sta zp_game_over_p2
 b1ca3:  rts
 
-b1ca4:  jsr play_collsion_or_wait_p2
+b1ca4:  jsr play_sound_or_wait_p2
         jsr inc_score_p2
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-play_collsion_p1:
+play_collision_p1:
         lda #$81
         sta $b0
         jmp j1cb6
 
-play_collsion_or_wait_p1:
+play_sound_or_wait_p1:
         lda #$21
         sta $b0
-        dec sound_collsion_delay_p1
+        dec sound_collision_delay_p1
         beq j1cb6
         rts
 
@@ -1096,7 +1132,7 @@ j1cb6:
         lda #$00
         sta $d404                                       ; voice 1: control register
         lda #$08
-        sta sound_collsion_delay_p1
+        sta sound_collision_delay_p1
         lda #$00
         sta $d400                                       ; voice 1: frequency control - low-byte
         lda #$0f
@@ -1115,15 +1151,15 @@ j1cb6:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-play_collsion_p2:
+play_collision_p2:
         lda #$81
         sta $b1
         jmp s1cfa
 
-play_collsion_or_wait_p2:
+play_sound_or_wait_p2:
         lda #$21
         sta $b1
-        dec sound_collsion_delay_p2
+        dec sound_collision_delay_p2
         beq s1cfa
         rts
 
@@ -1131,7 +1167,7 @@ s1cfa:
         lda #$00
         sta $d404                                       ; voice 1: control register
         lda #$08
-        sta sound_collsion_delay_p2
+        sta sound_collision_delay_p2
         lda #$00
         sta $d400                                       ; voice 1: frequency control - low-byte
         lda #$15
@@ -1152,7 +1188,7 @@ s1cfa:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 check_start_p1:
-        lda $fe
+        lda zp_finished_p1
         beq @l0
         rts
 
@@ -1169,7 +1205,7 @@ update_countdown:
         rts
 
 check_start_p2:
-        lda $ae
+        lda zp_finished_p2
         beq @l0
         rts
 
@@ -1303,47 +1339,61 @@ b1e3d:  lda #$39
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void check_restart_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1e50:  lda $28
+check_restart_p1:
+        lda zp_game_over_p1
         bne b1e55
 b1e54:  rts
 
 b1e55:  lda $dc00                                       ; cia1: data port register a
         and #$10
         bne b1e54
-        ldx #$f0
-b1e5e:  lda #$20
+
+        ldx #$f0                                        ; clean p1 screen
+@l0:    lda #$20
         sta $0477,x
         dex
-        bne b1e5e
+        bne @l0
+
         ldx #$50
-b1e68:  sta $0428,x
+@l1:    sta $0428,x
         dex
-        bpl b1e68
+        bpl @l1
+
         jmp init_vars_p1
 
-s1e75:  lda $29
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void check_restart_p2()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+check_restart_p2:
+        lda zp_game_over_p2
         bne b1e7a
 b1e79:  rts
 
 b1e7a:  lda $dc01                                       ; cia1: data port register b
         and #$10
         bne b1e79
-        ldx #$f0
-b1e83:  lda #$20
+
+        ldx #$f0                                        ; clean p2 screen
+@l0:    lda #$20
         sta $06cf,x
         dex
-        bne b1e83
+        bne @l0
+
         ldx #$50
-b1e8d:  sta $0680,x
+@l1:    sta $0680,x
         dex
-        bpl b1e8d
+        bpl @l1
+
         jmp init_vars_p2
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 p1eb0:
         lda #$93
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
-        jmp j130a
+        jmp game_restart
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; variables
@@ -1352,8 +1402,8 @@ f193d:                          .byte 0
 p1_collision:                   .byte 0
 p2_collision:                   .byte 0
 
-sound_collsion_delay_p1:        .byte $08
-sound_collsion_delay_p2:        .byte $08
+sound_collision_delay_p1:        .byte $08
+sound_collision_delay_p2:        .byte $08
 
 player_state_p1:                .byte $00
 ready_to_start_p1:              .byte $00
@@ -1385,7 +1435,7 @@ irq_0:
         lda #$02
         sta $d021                                       ; background color 0
 
-        lda $fa
+        lda zp_smooth_scroll_p1
         and #$c7
         sta $d016                                       ; vic control register 2
 
@@ -1441,7 +1491,7 @@ irq_2:
         sta $d021                                       ; background color 0
         lda $d021                                       ; background color 0
 
-        lda $aa
+        lda zp_smooth_scroll_p2
         and #$c7
         sta $d016                                       ; vic control register 2
 
