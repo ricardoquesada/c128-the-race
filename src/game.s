@@ -156,13 +156,13 @@ test_irq_0:
 
 anim_irq_0:
         dec sync_irq_0
-        jsr s17b0
+        jsr update_p2
         jsr s15cc
         jmp game_main_loop
 
 anim_irq_2:
         dec sync_irq_2
-        jsr s15b0
+        jsr update_p1
         jsr s17ce
         jmp game_main_loop
 
@@ -176,7 +176,7 @@ init_vars_p1:
         sta zp_time_2_p1
 
         lda #$00
-        sta a1e00
+        sta player_state_p1
         sta a1e01
         sta $0b00
         sta $0b01
@@ -279,7 +279,7 @@ init_vars_p2:
         sta zp_time_delay_p2
 
         lda #$00
-        sta a1e04
+        sta player_state_p2
         sta a1e05
         sta $ae
 
@@ -412,8 +412,10 @@ scroll_p1:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void udpate_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s15b0:  lda a1e00
+update_p1:
+        lda player_state_p1
         bne @l0
         rts
 
@@ -705,8 +707,10 @@ scroll_p2:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void update_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s17b0:  lda a1e04
+update_p2:
+        lda player_state_p2
         bne @l0
         rts
 
@@ -869,7 +873,7 @@ print_time_p1:
         lda $fe
         beq @l0
         lda #$00
-        sta a1e00
+        sta player_state_p1
         sta a1e01
         rts
 
@@ -886,7 +890,7 @@ print_time_p2:
         lda $ae
         beq @l0
         lda #$00
-        sta a1e04
+        sta player_state_p2
         sta a1e05
         rts
 
@@ -1174,15 +1178,15 @@ b1d4d:  lda $dc01                                       ; cia1: data port regist
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1d60:  lda a1e00
-        beq b1d68
+s1d60:  lda player_state_p1
+        beq @l0
         rts
 
-b1d68:  lda a1e01
-        bne b1d70
+@l0:    lda a1e01
+        bne @l1
         rts
 
-b1d70:  lda a1e05
+@l1:    lda a1e05
         bne b1da4
         lda $0591
         cmp #$20
@@ -1198,7 +1202,7 @@ b1d84:  lda #$30
         cmp #$30
         bne b1d83
         lda #$01
-        sta a1e00
+        sta player_state_p1
         rts
 
 b1d99:  lda #$39
@@ -1211,21 +1215,21 @@ b1da4:  lda #$20
         sta $0591
         sta $0631
         lda #$04
-        sta a1e00
-        sta a1e04
+        sta player_state_p1
+        sta player_state_p2
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1db5:  lda a1e04
-        beq b1dbd
+s1db5:  lda player_state_p2
+        beq @l0
         rts
 
-b1dbd:  lda a1e05
-        bne b1dc5
+@l0:    lda a1e05
+        bne @l1
         rts
 
-b1dc5:  lda a1e01
+@l1:    lda a1e01
         bne b1da4
         lda $0631
         cmp #$20
@@ -1241,7 +1245,7 @@ b1dd9:  lda #$30
         cmp #$30
         bne b1dd8
         lda #$01
-        sta a1e04
+        sta player_state_p2
         rts
 
 b1df1:  lda #$39
@@ -1341,12 +1345,13 @@ a1ce8:  .byte $04
 
 a1cab:  .byte $08
 
-a1e00:  .byte $00
-a1e01:  .byte $00
-a1e02:  .byte $2a
-a1e04:  .byte $00
-a1e05:  .byte $00
-a1e06:  .byte $12
+player_state_p1:        .byte $00
+a1e01:                  .byte $00
+a1e02:                  .byte $2a
+
+player_state_p2:        .byte $00
+a1e05:                  .byte $00
+a1e06:                  .byte $12
 
 
 label_txt_p1:
