@@ -22,32 +22,38 @@
 .include "c64.inc"                      ; c64 constants
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; ZP ABSOLUTE ADRESSES
+; zp absolute adresses
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+zp_joy_button_state_p1 = $1c                    ; 1 = not pressed, 2 = pressed
+zp_joy_button_state_p2 = $1e                    ; 1 = not pressed, 2 = pressed
+
 zp_time_delay_p1 = $1f
-zp_time_0_p1 = $21
-zp_time_1_p1 = $22
-zp_time_2_p1 = $23
+zp_time_0_p1 = $21                              ; seconds * 100
+zp_time_1_p1 = $22                              ; seconds * 10
+zp_time_2_p1 = $23                              ; seconds
 
 zp_game_over_p1 = $28
 zp_game_over_p2 = $29
 
 zp_time_delay_p2 = $94
-zp_time_0_p2 = $95
-zp_time_1_p2 = $96
-zp_time_2_p2 = $97
+zp_time_0_p2 = $95                              ; seconds * 100
+zp_time_1_p2 = $96                              ; seconds * 10
+zp_time_2_p2 = $97                              ; seconds
 
-zp_smooth_scroll_p1 = $fa
-zp_speed_lsb_p1 = $fb
-zp_speed_msb_p1 = $fc
-zp_mini_sprite_delay_p1 = $fd
-zp_finished_p1 = $fe
-
-zp_smooth_scroll_p2 = $aa
+zp_smooth_scroll_p2 = $aa                       ; value for $d016
 zp_speed_lsb_p2 = $ab
 zp_speed_msb_p2 = $ac
 zp_mini_sprite_delay_p2 = $ad
-zp_finished_p2 = $ae
+zp_finished_p2 = $ae                            ; boolean
+zp_already_in_collision_p2 = $af                ; boolean
+
+zp_smooth_scroll_p1 = $fa                       ; value for $d016
+zp_speed_lsb_p1 = $fb
+zp_speed_msb_p1 = $fc
+zp_mini_sprite_delay_p1 = $fd
+zp_finished_p1 = $fe                            ; boolean
+zp_already_in_collision_p1 = $ff                ; boolean
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; predefined labels
@@ -172,13 +178,14 @@ test_irq_0:
 anim_irq_0:
         dec sync_irq_0
         jsr update_p2
-        jsr s15cc
+        jsr update_game_state
         jmp game_main_loop
 
 anim_irq_2:
         dec sync_irq_2
         jsr update_p1
-        jsr s17ce
+        jsr check_collisions
+        jsr music_play
         jmp game_main_loop
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -195,7 +202,7 @@ init_vars_p1:
         sta ready_to_start_p1
         sta $0b00
         sta $0b01
-        sta $ff
+        sta zp_already_in_collision_p1
         sta zp_finished_p1
         sta $6a                                         ; ptr to map: LSB
         sta $6c
@@ -258,7 +265,8 @@ init_vars_p2:
         lda #$00
         sta $0b02
         sta $0b03
-        sta $af
+        sta zp_already_in_collision_p2
+
         sta $80                                         ; ptr to map: LSB
         sta $82
         sta $84
@@ -329,7 +337,7 @@ init_vars_p2:
 ; void scroll_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_p1:
-        lda $ff
+        lda zp_already_in_collision_p1
         bne @l0
 
         dec zp_speed_lsb_p1
@@ -430,225 +438,10 @@ scroll_p1:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void udpate_p1()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-update_p1:
-        lda player_state_p1
-        bne @l0
-        rts
-
-@l0:    jsr scroll_p1
-        jsr read_joy_p1
-        jsr s16d0
-        jsr update_time_p1
-        jsr print_time_p1
-        rts
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s15cc:  jsr check_start_p1
-        jsr check_start_p2
-        jsr update_game_over_score_p1
-        jsr update_game_over_score_p2
-        jsr check_restart_p1
-        jsr check_restart_p2
-        rts
-
-b15e0:
-        lda #$02
-        sta $1c
-        jmp j162a
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void read_joy_p1()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-read_joy_p1:
-        lda $dc00                                       ; cia1: data port register a
-        and #$0c
-        cmp #$0c
-        bne @l0
-
-        lda #$00
-        sta $1b
-
-@l0:    lda $1b
-        bne @l1
-
-        lda $dc00                                       ; cia1: data port register a
-        and #$04
-        beq b1639
-
-        lda $dc00                                       ; cia1: data port register a
-        and #$08
-        beq b1660
-
-@l1:    lda $dc00                                       ; cia1: data port register a
-        and #$10
-        beq b15e0
-
-        lda #$01
-        sta $1c
-j162a:  lda $dc00                                       ; cia1: data port register a
-        and #$01
-        beq b1697
-
-        lda $dc00                                       ; cia1: data port register a
-        and #$02
-        beq b1687
-j1638:  rts
-
-b1639:  lda $0b01
-        beq b164b
-        dec $0b01
-        dec $05b2
-
-b1644:  lda #$01
-        sta $1b
-        jmp j1638
-
-b164b:  lda $0b00
-        cmp #$04
-        beq b1644
-        inc $0b00
-        dec $05b2
-        jmp b1644
-
-b1660:  lda $0b00
-        beq b1672
-        dec $0b00
-        inc $05b2
-
-b166b:  lda #$01
-        sta $1b
-        jmp j1638
-
-b1672:  lda $0b01
-        cmp #$04
-        beq b166b
-        inc $0b01
-        inc $05b2
-        jmp b166b
-
-b1687:  lda $d001                                       ; sprite 0 y pos
-        cmp #$7a
-        bcs b169e
-
-b168e:  ldx $1c
-@l0:    inc $d001                                       ; sprite 0 y pos
-        dex
-        bne @l0
-        rts
-
-b1697:  lda $d001                                       ; sprite 0 y pos
-        cmp #$3a
-        bcc b168e
-
-b169e:  ldx $1c
-@l0:    dec $d001                                       ; sprite 0 y pos
-        dex
-        bne @l0
-        rts
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void check_collisions()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-check_collisions:
-        lda $d019                                       ; vic interrupt request register (irr)
-        and #$02
-        bne @l2
-
-        lda #$01
-        sta $d019                                       ; vic interrupt request register (irr)
-        lda $d01f                                       ; sprite to background collision detect
-        rts
-
-@l2:
-        lda $d01f                                       ; sprite to background collision detect
-        ldx #$01
-@l1:    lsr
-        bcc @l0
-        pha
-        txa
-        sta f193d,x
-        pla
-@l0:    inx
-        cpx #$03
-        bne @l1
-
-        lda p1_collision                                ; p1 collision ?
-        bne handle_p1_collision
-
-j1958:  lda p2_collision                                ; p2 collision ?
-        bne handle_p2_collision
-
-j195d:  lda #$02
-        sta $d019                                       ; vic interrupt request register (irr)
-        rts
-
-handle_p1_collision:
-        lda $ff
-        bne @l1
-        lda #$01
-        sta $ff
-
-        lda $05b2
-        and #$0f
-        tax
-@l0:    jsr inc_score_p1
-        dex
-        bne @l0
-
-        jsr play_collision_p1
-
-@l1:    lda #$00
-        sta p1_collision
-        jmp j1958
-
-
-handle_p2_collision:
-        lda $af
-        bne b1b46
-        lda #$01
-        sta $af
-
-        lda $0652
-        and #$0f
-        tax
-@l0:    jsr inc_score_p2
-        dex
-        bne @l0
-
-        jsr play_collision_p2
-
-b1b46:  lda #$00
-        sta p2_collision
-        jmp j195d
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s16d0:  lda $ff
-        bne @l0
-@l1:    rts
-
-@l0:    lda $1c
-        cmp #$02
-        bne @l1
-
-        lda p1_collision
-        cmp #$00
-        bne @l1
-
-        lda #$00
-        sta $ff
-
-        rts
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void scroll_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_p2:
-        lda $af
+        lda zp_already_in_collision_p2
         bne @l0
 
         dec zp_speed_lsb_p2
@@ -749,6 +542,21 @@ scroll_p2:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void udpate_p1()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+update_p1:
+        lda player_state_p1
+        bne @l0
+        rts
+
+@l0:    jsr scroll_p1
+        jsr read_joy_p1
+        jsr update_collision_state_p1
+        jsr update_time_p1
+        jsr print_time_p1
+        rts
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void update_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 update_p2:
@@ -756,24 +564,221 @@ update_p2:
         bne @l0
         rts
 
-@l0:
-        jsr scroll_p2
+@l0:    jsr scroll_p2
         jsr read_joy_p2
-        jsr s18d0
+        jsr update_collision_state_p2
         jsr print_time_p2
         jsr update_time_p2
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void update_game_state()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s17ce:  jsr check_collisions
-        jsr music_play
+update_game_state:
+        jsr check_start_p1
+        jsr check_start_p2
+        jsr update_game_over_score_p1
+        jsr update_game_over_score_p2
+        jsr check_restart_p1
+        jsr check_restart_p2
         rts
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void read_joy_p1()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+read_joy_p1:
+        lda $dc00                                       ; cia1: data port register a
+        and #%00001100
+        cmp #%00001100                                  ; left/right
+        bne @l0
+
+        lda #$00
+        sta $1b
+
+@l0:    lda $1b
+        bne @l1
+
+        lda $dc00                                       ; cia1: data port register a
+        and #$04                                        ; left ?
+        beq @left
+
+        lda $dc00                                       ; cia1: data port register a
+        and #$08                                        ; right ?
+        beq @right
+
+@l1:    lda $dc00                                       ; cia1: data port register a
+        and #$10                                        ; button ?
+        beq @l2
+
+        lda #$01                                        ; not pressed. button_state = 1
+        bne @l3
+@l2:    lda #$02                                        ; pressed. button_state = 2
+@l3:    sta zp_joy_button_state_p1
+
+        lda $dc00                                       ; cia1: data port register a
+        and #$01                                        ; up ?
+        beq @up
+
+        lda $dc00                                       ; cia1: data port register a
+        and #$02                                        ; down ?
+        beq @down
+@end:   rts
+
+@left:  lda $0b01
+        beq @l5
+        dec $0b01
+        dec $05b2
+
+@l4:    lda #$01
+        sta $1b
+        jmp @end
+
+@l5:    lda $0b00
+        cmp #$04
+        beq @l4
+        inc $0b00
+        dec $05b2
+        jmp @l4
+
+@right: lda $0b00
+        beq @l7
+        dec $0b00
+        inc $05b2
+
+@l6:    lda #$01
+        sta $1b
+        jmp @end
+
+@l7:    lda $0b01
+        cmp #$04
+        beq @l6
+        inc $0b01
+        inc $05b2
+        jmp @l6
+
+@down:  lda $d001                                       ; sprite 0 y pos
+        cmp #$7a
+        bcs @l11
+
+@l8:    ldx zp_joy_button_state_p1
+@l9:    inc $d001                                       ; sprite 0 y pos
+        dex
+        bne @l9
+        rts
+
+@up:    lda $d001                                       ; sprite 0 y pos
+        cmp #$3a
+        bcc @l8
+
+@l11:   ldx zp_joy_button_state_p1
+@l10:   dec $d001                                       ; sprite 0 y pos
+        dex
+        bne @l10
+        rts
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void check_collisions()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+check_collisions:
+        lda $d019                                       ; vic interrupt request register (irr)
+        and #$02
+        bne @l2
+
+        lda #$01
+        sta $d019                                       ; vic interrupt request register (irr)
+        lda $d01f                                       ; sprite to background collision detect
+        rts
+
+@l2:
+        lda $d01f                                       ; sprite to background collision detect
+        ldx #$01
+@l1:    lsr
+        bcc @l0
+        pha
+        txa
+        sta f193d,x
+        pla
+@l0:    inx
+        cpx #$03
+        bne @l1
+
+        lda p1_collision                                ; p1 collision ?
+        bne handle_p1_collision
+
+j1958:  lda p2_collision                                ; p2 collision ?
+        bne handle_p2_collision
+
+j195d:  lda #$02
+        sta $d019                                       ; vic interrupt request register (irr)
+        rts
+
+handle_p1_collision:
+        lda zp_already_in_collision_p1
+        bne @l1
+
+        lda #$01
+        sta zp_already_in_collision_p1
+
+        lda $05b2
+        and #$0f
+        tax
+@l0:    jsr inc_score_p1
+        dex
+        bne @l0
+
+        jsr play_collision_p1
+
+@l1:    lda #$00
+        sta p1_collision
+        jmp j1958
+
+
+handle_p2_collision:
+        lda zp_already_in_collision_p2
+        bne b1b46
+        lda #$01
+        sta zp_already_in_collision_p2
+
+        lda $0652                                       ; p2 speed
+        and #$0f
+        tax
+@l0:    jsr inc_score_p2
+        dex
+        bne @l0
+
+        jsr play_collision_p2
+
+b1b46:  lda #$00
+        sta p2_collision
+        jmp j195d
+
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void update_collision_state_p1()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+update_collision_state_p1:
+        lda zp_already_in_collision_p1
+        bne @l0
+@l1:    rts
+
+@l0:    lda zp_joy_button_state_p1
+        cmp #$02
+        bne @l1
+
+        lda p1_collision
+        cmp #$00
+        bne @l1
+
+        lda #$00
+        sta zp_already_in_collision_p1
+
+        rts
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 b17e0:  lda #$02
-        sta $1e
+        sta zp_joy_button_state_p2
         jmp j182a
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -783,6 +788,7 @@ read_joy_p2:
         and #$0c
         cmp #$0c
         bne b180d
+
         lda #$00
         sta $1d
 
@@ -795,11 +801,14 @@ b180d:  lda $1d
 f1818:  lda $dc01                                       ; cia1: data port register b
         and #$08
         beq b1860
+
 b181f:  lda $dc01                                       ; cia1: data port register b
-        and #$10
+        and #$10                                        ; button pressed ?
         beq b17e0
+
         lda #$01
-        sta $1e
+        sta zp_joy_button_state_p2
+
 j182a:  lda $dc01                                       ; cia1: data port register b
         and #$01
         beq b1897
@@ -841,7 +850,7 @@ b1872:  lda $0b03
 b1887:  lda $d003                                       ; sprite 1 y pos
         cmp #$f0
         bcs b189e
-b188e:  ldx $1e
+b188e:  ldx zp_joy_button_state_p2
 b1890:  inc $d003                                       ; sprite 1 y pos
         dex
         bne b1890
@@ -850,25 +859,30 @@ b1890:  inc $d003                                       ; sprite 1 y pos
 b1897:  lda $d003                                       ; sprite 1 y pos
         cmp #$af
         bcc b188e
-b189e:  ldx $1e
+b189e:  ldx zp_joy_button_state_p2
 b18a0:  dec $d003                                       ; sprite 1 y pos
         dex
         bne b18a0
         rts
 
-s18d0:  lda $af
-        bne b18d5
-b18d4:  rts
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void update_collision_state_p2()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+update_collision_state_p2:
+        lda zp_already_in_collision_p2
+        bne @l0
+@l1:    rts
 
-b18d5:  lda $1e
+@l0:    lda zp_joy_button_state_p2
         cmp #$02
-        bne b18d4
-        lda p2_collision
-        bne b18d4
-        lda #$00
-        sta $af
-        rts
+        bne @l1
 
+        lda p2_collision
+        bne @l1
+
+        lda #$00
+        sta zp_already_in_collision_p2
+        rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void udpate_time_p1()
@@ -946,6 +960,7 @@ print_time_p2:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void inc_score_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 inc_score_p1:
         inc $05a9
@@ -987,6 +1002,7 @@ inc_score_p1:
 @end:   rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void inc_score_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 inc_score_p2:
         inc $0649
@@ -1115,6 +1131,7 @@ b1ca4:  jsr play_sound_or_wait_p2
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void play_collision_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 play_collision_p1:
         lda #$81
@@ -1150,6 +1167,7 @@ j1cb6:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void play_collision_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 play_collision_p2:
         lda #$81
@@ -1399,11 +1417,11 @@ p1eb0:
 ; variables
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 f193d:                          .byte 0
-p1_collision:                   .byte 0
-p2_collision:                   .byte 0
+p1_collision:                   .byte 0                 ; boolean
+p2_collision:                   .byte 0                 ; boolean
 
-sound_collision_delay_p1:        .byte $08
-sound_collision_delay_p2:        .byte $08
+sound_collision_delay_p1:       .byte $08
+sound_collision_delay_p2:       .byte $08
 
 player_state_p1:                .byte $00
 ready_to_start_p1:              .byte $00
