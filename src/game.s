@@ -69,6 +69,10 @@ j130a:
         lda #>irq_0
         sta $0315
 
+        lda #0
+        sta sync_irq_0
+        sta sync_irq_2
+
         lda #%11000000                                  ;
         sta $0a04                                       ; init status
 
@@ -419,7 +423,7 @@ b15e0:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1600:  lda $dc00                                       ;cia1: data port register a
+s1600:  lda $dc00                                       ; cia1: data port register a
         and #$0c
         cmp #$0c
         bne @l0
@@ -430,25 +434,25 @@ s1600:  lda $dc00                                       ;cia1: data port registe
 @l0:    lda $1b
         bne @l1
 
-        lda $dc00                                       ;cia1: data port register a
+        lda $dc00                                       ; cia1: data port register a
         and #$04
         beq b1639
 
-        lda $dc00                                       ;cia1: data port register a
+        lda $dc00                                       ; cia1: data port register a
         and #$08
         beq b1660
 
-@l1:    lda $dc00                                       ;cia1: data port register a
+@l1:    lda $dc00                                       ; cia1: data port register a
         and #$10
         beq b15e0
 
         lda #$01
         sta $1c
-j162a:  lda $dc00                                       ;cia1: data port register a
+j162a:  lda $dc00                                       ; cia1: data port register a
         and #$01
         beq b1697
 
-        lda $dc00                                       ;cia1: data port register a
+        lda $dc00                                       ; cia1: data port register a
         and #$02
         beq b1687
 j1638:  rts
@@ -485,36 +489,80 @@ b1672:  lda $0b01
         inc $05b2
         jmp b166b
 
-b1687:  lda $d001                                       ;sprite 0 y pos
+b1687:  lda $d001                                       ; sprite 0 y pos
         cmp #$7a
         bcs b169e
 
 b168e:  ldx $1c
-@l0:    inc $d001                                       ;sprite 0 y pos
+@l0:    inc $d001                                       ; sprite 0 y pos
         dex
         bne @l0
         rts
 
-b1697:  lda $d001                                       ;sprite 0 y pos
+b1697:  lda $d001                                       ; sprite 0 y pos
         cmp #$3a
         bcc b168e
 
 b169e:  ldx $1c
-@l0:    dec $d001                                       ;sprite 0 y pos
+@l0:    dec $d001                                       ; sprite 0 y pos
         dex
         bne @l0
         rts
 
-s16aa:  lda $d019                                       ;vic interrupt request register (irr)
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+s16aa:  lda $d019                                       ; vic interrupt request register (irr)
         and #$02
         bne b16ba
 
         lda #$01
-        sta $d019                                       ;vic interrupt request register (irr)
-        lda $d01f                                       ;sprite to background collision detect
+        sta $d019                                       ; vic interrupt request register (irr)
+        lda $d01f                                       ; sprite to background collision detect
         rts
 
-b16ba:  jmp j1940
+b16ba:
+        lda $d01f                                       ; sprite to background collision detect
+        ldx #$01
+@l1:    lsr
+        bcc @l0
+        pha
+        txa
+        sta f193d,x
+        pla
+@l0:    inx
+        cpx #$03
+        bne @l1
+
+        lda p1_collision                                ; p1 collision ?
+        bne b1965
+
+j1958:  lda p2_collision                                ; p2 collision ?
+        bne handle_p2_collision
+
+j195d:  lda #$02
+        sta $d019                                       ; vic interrupt request register (irr)
+        rts
+
+b1965:  jmp handle_p1_collision
+
+handle_p2_collision:
+        lda $af
+        bne b1b46
+        lda #$01
+        sta $af
+
+        lda $0652
+        and #$0f
+        tax
+@l0:    jsr inc_score_p2
+        dex
+        bne @l0
+
+        jsr play_collsion_p2
+
+b1b46:  lda #$00
+        sta p2_collision
+        jmp j195d
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -526,7 +574,7 @@ s16d0:  lda $ff
 @l0:    lda $1c
         cmp #$02
         bne @l1
-        lda a193e
+        lda p1_collision
         cmp #$00
         bne @l1
         lda #$00
@@ -656,7 +704,7 @@ b17e0:  lda #$02
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1800:  lda $dc01                                       ;cia1: data port register b
+s1800:  lda $dc01                                       ; cia1: data port register b
         and #$0c
         cmp #$0c
         bne b180d
@@ -665,22 +713,22 @@ s1800:  lda $dc01                                       ;cia1: data port registe
 
 b180d:  lda $1d
         bne b181f
-        lda $dc01                                       ;cia1: data port register b
+        lda $dc01                                       ; cia1: data port register b
         and #$04
         beq b1839
 
-f1818:  lda $dc01                                       ;cia1: data port register b
+f1818:  lda $dc01                                       ; cia1: data port register b
         and #$08
         beq b1860
-b181f:  lda $dc01                                       ;cia1: data port register b
+b181f:  lda $dc01                                       ; cia1: data port register b
         and #$10
         beq b17e0
         lda #$01
         sta $1e
-j182a:  lda $dc01                                       ;cia1: data port register b
+j182a:  lda $dc01                                       ; cia1: data port register b
         and #$01
         beq b1897
-        lda $dc01                                       ;cia1: data port register b
+        lda $dc01                                       ; cia1: data port register b
         and #$02
         beq b1887
 j1838:  rts
@@ -715,20 +763,20 @@ b1872:  lda $0b03
         inc $0652
         jmp b186b
 
-b1887:  lda $d003                                       ;sprite 1 y pos
+b1887:  lda $d003                                       ; sprite 1 y pos
         cmp #$f0
         bcs b189e
 b188e:  ldx $1e
-b1890:  inc $d003                                       ;sprite 1 y pos
+b1890:  inc $d003                                       ; sprite 1 y pos
         dex
         bne b1890
         rts
 
-b1897:  lda $d003                                       ;sprite 1 y pos
+b1897:  lda $d003                                       ; sprite 1 y pos
         cmp #$af
         bcc b188e
 b189e:  ldx $1e
-b18a0:  dec $d003                                       ;sprite 1 y pos
+b18a0:  dec $d003                                       ; sprite 1 y pos
         dex
         bne b18a0
         rts
@@ -740,54 +788,12 @@ b18d4:  rts
 b18d5:  lda $1e
         cmp #$02
         bne b18d4
-        lda a193f
+        lda p2_collision
         bne b18d4
         lda #$00
         sta $af
         rts
 
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-j1940:  lda $d01f                                       ;sprite to background collision detect
-        ldx #$01
-@l1:    lsr
-        bcc @l0
-        pha
-        txa
-        sta f193d,x
-        pla
-@l0:    inx
-        cpx #$03
-        bne @l1
-
-        lda a193e
-        bne b1965
-j1958:  lda a193f
-        bne b196c
-
-j195d:  lda #$02
-        sta $d019                                       ;vic interrupt request register (irr)
-        rts
-
-b1965:  jmp j1b10
-
-b196c:  lda #$ff
-        lda $29                                         ; xxx: should it be sta $29 ?
-
-        lda $af
-        bne b1b46
-        lda #$01
-        sta $af
-        lda $0652
-        and #$0f
-        tax
-b1b3d:  jsr s1b9d
-        dex
-s1b41:  bne b1b3d
-        jsr s1ce9
-b1b46:  lda #$00
-        sta a193f
-        jmp j195d
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -859,96 +865,110 @@ s1af8:  lda $ae
         bpl @l1
         rts
 
-j1b10:  lda $ff
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+handle_p1_collision:
+        lda $ff
         bne b1b27
         lda #$01
         sta $ff
+
         lda $05b2
         and #$0f
         tax
-b1b1e:  jsr s1b4e
+@l0:    jsr inc_score_p1
         dex
-        bne b1b1e
-        jsr s1bf0
+        bne @l0
+
+        jsr play_collsion_p1
+
 b1b27:  lda #$00
-        sta a193e
+        sta p1_collision
         jmp j1958
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1b4e:  inc $05a9
+inc_score_p1:
+        inc $05a9
         lda $05a9
         cmp #$3a
-b1b56:  bne b1b9c
+@l0:    bne @end
+
         lda #$30
         sta $05a9
         inc $05a8
         lda $05a8
         cmp #$3a
-        bne b1b56
+        bne @l0
+
         lda #$30
         sta $05a8
         inc $05a7
         lda $05a7
         cmp #$3a
-        bne b1b56
+        bne @l0
+
         lda #$30
         sta $05a7
         inc $05a6
         lda $05a6
         cmp #$3a
-        bne b1b56
+        bne @l0
+
         lda #$30
         sta $05a6
         inc $05a5
         lda $05a5
         cmp #$3a
-        bne b1b56
+        bne @l0
+
         lda #$39
         sta $05a5
         sta $05a6
-b1b9c:  rts
+@end:   rts
 
-s1b9d:  inc $0649
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+inc_score_p2:
+        inc $0649
         lda $0649
         cmp #$3a
-b1ba5:  bne b1beb
+@l0:    bne @end
+
         lda #$30
         sta $0649
         inc $0648
         lda $0648
         cmp #$3a
-        bne b1ba5
+        bne @l0
+
         lda #$30
         sta $0648
         inc $0647
         lda $0647
         cmp #$3a
-        bne b1ba5
+        bne @l0
+
         lda #$30
         sta $0647
         inc $0646
         lda $0646
         cmp #$3a
-        bne b1ba5
+        bne @l0
+
         lda #$30
         sta $0646
         inc $0645
         lda $0645
         cmp #$3a
-        bne b1ba5
+        bne @l0
+
         lda #$39
         sta $0645
         sta $0646
-b1beb:  rts
+@end:   rts
 
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1bf0:  lda #$81
-        sta $b0
-        jmp j1cb6
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -983,7 +1003,7 @@ s1c10:  lda $fe
 b1c53:  rts
 
 b1c57:  jsr s1cac
-        jsr s1b4e
+        jsr inc_score_p1
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1019,11 +1039,16 @@ b1c92:  bne b1ca4
 b1ca3:  rts
 
 b1ca4:  jsr s1cf0
-        jsr s1b9d
+        jsr inc_score_p2
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+play_collsion_p1:
+        lda #$81
+        sta $b0
+        jmp j1cb6
+
 s1cac:  lda #$21
         sta $b0
         dec a1cab
@@ -1032,31 +1057,31 @@ s1cac:  lda #$21
 
 j1cb6:
         lda #$00
-        sta $d404                                       ;voice 1: control register
+        sta $d404                                       ; voice 1: control register
         lda #$08
         sta a1cab
         lda #$00
-        sta $d400                                       ;voice 1: frequency control - low-byte
+        sta $d400                                       ; voice 1: frequency control - low-byte
         lda #$0f
-        sta $d401                                       ;voice 1: frequency control - high-byte
+        sta $d401                                       ; voice 1: frequency control - high-byte
         lda #$00
-        lda $d402                                       ;voice 1: pulse waveform width - low-byte
+        lda $d402                                       ; voice 1: pulse waveform width - low-byte
         lda #$01
-        lda $d403                                       ;voice 1: pulse waveform width - high-nybble
+        lda $d403                                       ; voice 1: pulse waveform width - high-nybble
         lda #$09
-        lda $d405                                       ;voice 1: attack / decay cycle control
+        lda $d405                                       ; voice 1: attack / decay cycle control
         lda #$01
-        lda $d406                                       ;voice 1: sustain / release cycle control
+        lda $d406                                       ; voice 1: sustain / release cycle control
         lda $b0
-        sta $d404                                       ;voice 1: control register
+        sta $d404                                       ; voice 1: control register
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1ce9:
+play_collsion_p2:
         lda #$81
         sta $b1
-        jmp $1cfa
+        jmp s1cfa
 
 s1cf0:
         lda #$21
@@ -1067,23 +1092,23 @@ s1cf0:
 
 s1cfa:
         lda #$00
-        sta $d404                                       ;voice 1: control register
+        sta $d404                                       ; voice 1: control register
         lda #$08
         sta a1ce8
         lda #$00
-        sta $d400                                       ;voice 1: frequency control - low-byte
+        sta $d400                                       ; voice 1: frequency control - low-byte
         lda #$15
-        sta $d401                                       ;voice 1: frequency control - high-byte
+        sta $d401                                       ; voice 1: frequency control - high-byte
         lda #$00
-        lda $d409                                       ;voice 2: pulse waveform width - low-byte
+        lda $d409                                       ; voice 2: pulse waveform width - low-byte
         lda #$00
-        lda $d40a                                       ;voice 2: pulse waveform width - high-nybble
+        lda $d40a                                       ; voice 2: pulse waveform width - high-nybble
         lda #$09
-        lda $d40c                                       ;voice 2: attack / decay cycle control
+        lda $d40c                                       ; voice 2: attack / decay cycle control
         lda #$01
-        lda $d40d                                       ;voice 2: sustain / release cycle control
+        lda $d40d                                       ; voice 2: sustain / release cycle control
         lda $b1
-        sta $d404                                       ;voice 1: control register
+        sta $d404                                       ; voice 1: control register
         rts
 
 
@@ -1093,7 +1118,7 @@ s1d30:  lda $fe
         beq @l0
         rts
 
-@l0:    lda $dc00                                       ;cia1: data port register a
+@l0:    lda $dc00                                       ; cia1: data port register a
         and #$10
         bne b1d41
         lda #$01
@@ -1107,7 +1132,7 @@ s1d48:  lda $ae
         beq b1d4d
         rts
 
-b1d4d:  lda $dc01                                       ;cia1: data port register b
+b1d4d:  lda $dc01                                       ; cia1: data port register b
         and #$10
         bne b1d41
         lda #$01
@@ -1234,7 +1259,7 @@ s1e50:  lda $28
         bne b1e55
 b1e54:  rts
 
-b1e55:  lda $dc00                                       ;cia1: data port register a
+b1e55:  lda $dc00                                       ; cia1: data port register a
         and #$10
         bne b1e54
         ldx #$f0
@@ -1252,7 +1277,7 @@ s1e75:  lda $29
         bne b1e7a
 b1e79:  rts
 
-b1e7a:  lda $dc01                                       ;cia1: data port register b
+b1e7a:  lda $dc01                                       ; cia1: data port register b
         and #$10
         bne b1e79
         ldx #$f0
@@ -1268,15 +1293,15 @@ b1e8d:  sta $0680,x
 
 p1eb0:
         lda #$93
-        jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
+        jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
         jmp j130a
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; variables
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 f193d:  .byte 0
-a193e:  .byte 0
-a193f:  .byte 0
+p1_collision:  .byte 0
+p2_collision:  .byte 0
 
 a1ce8:  .byte $04
 
