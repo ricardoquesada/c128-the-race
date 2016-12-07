@@ -22,6 +22,19 @@
 .include "c64.inc"                      ; c64 constants
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; ZP ABSOLUTE ADRESSES
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+zp_time_delay_p1 = $1f
+zp_time_0_p1 = $21
+zp_time_1_p1 = $22
+zp_time_2_p1 = $23
+
+zp_time_delay_p2 = $94
+zp_time_0_p2 = $95
+zp_time_1_p2 = $96
+zp_time_2_p2 = $97
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; predefined labels
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 rom_bsouti = $ffd2
@@ -158,9 +171,9 @@ anim_irq_2:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 init_vars_p1:
         lda #$30
-        sta $21
-        sta $22
-        sta $23
+        sta zp_time_0_p1
+        sta zp_time_1_p1
+        sta zp_time_2_p1
 
         lda #$00
         sta a1e00
@@ -199,8 +212,10 @@ init_vars_p1:
         sta $d001                                       ; sprite 0 y pos
         lda #$80
         sta $d000                                       ; sprite 0 x pos
+
         lda #$04
-        sta $1f
+        sta zp_time_delay_p1
+
         lda #$70
         sta $d004                                       ; sprite 2 x pos
         lda #$90
@@ -261,16 +276,17 @@ init_vars_p2:
         sta $d007                                       ;sprite 3 y pos
 
         lda #$04
-        sta $94
+        sta zp_time_delay_p2
+
         lda #$00
         sta a1e04
         sta a1e05
         sta $ae
 
         lda #$30
-        sta $95
-        sta $96
-        sta $97
+        sta zp_time_0_p2
+        sta zp_time_1_p2
+        sta zp_time_2_p2
 
         lda #$07
         sta $aa
@@ -296,8 +312,10 @@ init_vars_p2:
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void scroll_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1500:  lda $ff
+scroll_p1:
+        lda $ff
         bne @l0
         dec $fb
         bmi @l1
@@ -399,11 +417,11 @@ s15b0:  lda a1e00
         bne @l0
         rts
 
-@l0:    jsr s1500
-        jsr s1600
+@l0:    jsr scroll_p1
+        jsr read_joy_p1
         jsr s16d0
-        jsr s1aa6
-        jsr s1ae0
+        jsr update_time_p1
+        jsr print_time_p1
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -422,8 +440,10 @@ b15e0:
         jmp j162a
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void read_joy_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1600:  lda $dc00                                       ; cia1: data port register a
+read_joy_p1:
+        lda $dc00                                       ; cia1: data port register a
         and #$0c
         cmp #$0c
         bne @l0
@@ -510,17 +530,19 @@ b169e:  ldx $1c
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void check_collisions()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s16aa:  lda $d019                                       ; vic interrupt request register (irr)
+check_collisions:
+        lda $d019                                       ; vic interrupt request register (irr)
         and #$02
-        bne b16ba
+        bne @l2
 
         lda #$01
         sta $d019                                       ; vic interrupt request register (irr)
         lda $d01f                                       ; sprite to background collision detect
         rts
 
-b16ba:
+@l2:
         lda $d01f                                       ; sprite to background collision detect
         ldx #$01
 @l1:    lsr
@@ -582,8 +604,10 @@ s16d0:  lda $ff
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void scroll_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1700:  lda $af
+scroll_p2:
+        lda $af
         bne @l0
         dec $ab
         bmi @l1
@@ -687,24 +711,29 @@ s17b0:  lda a1e04
         rts
 
 @l0:
-        jsr s1700
-        jsr s1800
+        jsr scroll_p2
+        jsr read_joy_p2
         jsr s18d0
-        jsr s1af8
-        jsr s1e10
+        jsr print_time_p2
+        jsr update_time_p2
         rts
 
-s17ce:  jsr s16aa
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+s17ce:  jsr check_collisions
         jsr music_play
         rts
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 b17e0:  lda #$02
         sta $1e
         jmp j182a
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1800:  lda $dc01                                       ; cia1: data port register b
+read_joy_p2:
+        lda $dc01                                       ; cia1: data port register b
         and #$0c
         cmp #$0c
         bne b180d
@@ -795,47 +824,49 @@ b18d5:  lda $1e
         rts
 
 
-
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void udpate_time_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1aa6:  dec $1f
+update_time_p1:
+        dec zp_time_delay_p1
         beq @l0
         rts
 
 @l0:    lda #$10
-        sta $1f
-        nop
-        inc $23
-        lda $23
+        sta zp_time_delay_p1
+
+        inc zp_time_2_p1
+        lda zp_time_2_p1
         cmp #$3a
         beq @l1
         rts
 
 @l1:    lda #$30
-        sta $23
-        inc $22
-        lda $22
+        sta zp_time_2_p1
+        inc zp_time_1_p1
+        lda zp_time_1_p1
         cmp #$3a
         beq @l2
         rts
 
 @l2:    lda #$30
-        sta $22
-        inc $21
-        lda $21
+        sta zp_time_1_p1
+        inc zp_time_0_p1
+        lda zp_time_0_p1
         cmp #$3a
         beq @l3
         rts
 
 @l3:    lda #$39
-        sta $21
-        sta $22
-        sta $23
+        sta zp_time_0_p1
+        sta zp_time_1_p1
+        sta zp_time_2_p1
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1ae0:  lda $fe
+print_time_p1:
+        lda $fe
         beq @l0
         lda #$00
         sta a1e00
@@ -843,7 +874,7 @@ s1ae0:  lda $fe
         rts
 
 @l0:    ldx #$02
-@l1:    lda $21,x
+@l1:    lda zp_time_0_p1,x
         sta $059a,x
         dex
         bpl @l1
@@ -851,7 +882,8 @@ s1ae0:  lda $fe
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1af8:  lda $ae
+print_time_p2:
+        lda $ae
         beq @l0
         lda #$00
         sta a1e04
@@ -859,7 +891,7 @@ s1af8:  lda $ae
         rts
 
 @l0:    ldx #$02
-@l1:    lda $95,x
+@l1:    lda zp_time_0_p2,x
         sta $063a,x
         dex
         bpl @l1
@@ -1219,40 +1251,42 @@ b1df1:  lda #$39
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void update_time_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1e10:  dec $94
+update_time_p2:
+        dec zp_time_delay_p2
         beq b1e15
         rts
 
 b1e15:  lda #$10
-        sta $94
+        sta zp_time_delay_p2
         nop
-        inc $97
-        lda $97
+        inc zp_time_2_p2
+        lda zp_time_2_p2
         cmp #$3a
         beq b1e23
         rts
 
 b1e23:  lda #$30
-        sta $97
-        inc $96
-        lda $96
+        sta zp_time_2_p2
+        inc zp_time_1_p2
+        lda zp_time_1_p2
         cmp #$3a
         beq b1e30
         rts
 
 b1e30:  lda #$30
-        sta $96
-        inc $95
-        lda $95
+        sta zp_time_1_p2
+        inc zp_time_0_p2
+        lda zp_time_0_p2
         cmp #$3a
         beq b1e3d
         rts
 
 b1e3d:  lda #$39
-        sta $95
-        sta $96
-        sta $97
+        sta zp_time_0_p2
+        sta zp_time_1_p2
+        sta zp_time_2_p2
         rts
 
 s1e50:  lda $28
