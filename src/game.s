@@ -608,11 +608,11 @@ read_joy_p1:
 
 @l1:    lda $dc00                                       ; cia1: data port register a
         and #$10                                        ; button ?
-        beq @l2
+        beq @button
 
         lda #$01                                        ; not pressed. button_state = 1
         bne @l3
-@l2:    lda #$02                                        ; pressed. button_state = 2
+@button:lda #$02                                        ; pressed. button_state = 2
 @l3:    sta zp_joy_button_state_p1
 
         lda $dc00                                       ; cia1: data port register a
@@ -777,92 +777,93 @@ update_collision_state_p1:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-b17e0:  lda #$02
-        sta zp_joy_button_state_p2
-        jmp j182a
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 read_joy_p2:
         lda $dc01                                       ; cia1: data port register b
-        and #$0c
-        cmp #$0c
-        bne b180d
+        and #%00001100
+        cmp #%00001100                                  ; left/right ?
+        bne @l0
 
         lda #$00
         sta $1d
 
-b180d:  lda $1d
-        bne b181f
+@l0:    lda $1d
+        bne @l1
+
         lda $dc01                                       ; cia1: data port register b
-        and #$04
-        beq b1839
+        and #$04                                        ; left ?
+        beq @left
 
-f1818:  lda $dc01                                       ; cia1: data port register b
-        and #$08
-        beq b1860
+        lda $dc01                                       ; cia1: data port register b
+        and #$08                                        ; right ?
+        beq @right
 
-b181f:  lda $dc01                                       ; cia1: data port register b
+@l1:    lda $dc01                                       ; cia1: data port register b
         and #$10                                        ; button pressed ?
-        beq b17e0
+        beq @button
 
         lda #$01
-        sta zp_joy_button_state_p2
+        bne @l2
+@button:lda #$02
+@l2:    sta zp_joy_button_state_p2
 
-j182a:  lda $dc01                                       ; cia1: data port register b
-        and #$01
-        beq b1897
         lda $dc01                                       ; cia1: data port register b
-        and #$02
-        beq b1887
-j1838:  rts
+        and #$01                                        ; up ?
+        beq @up
 
-b1839:  lda $0b03
-        beq b184b
+        lda $dc01                                       ; cia1: data port register b
+        and #$02                                        ; down ?
+        beq @down
+@end:   rts
+
+@left:  lda $0b03
+        beq @l4
         dec $0b03
         dec $0652
-b1844:  lda #$01
+@l3:    lda #$01
         sta $1d
-        jmp j1838
+        jmp @end
 
-b184b:  lda $0b02
+@l4:    lda $0b02
         cmp #$04
-        beq b1844
+        beq @l3
         inc $0b02
         dec $0652
-        jmp b1844
+        jmp @l3
 
-b1860:  lda $0b02
-        beq b1872
+@right: lda $0b02
+        beq @l6
         dec $0b02
         inc $0652
-b186b:  lda #$01
+@l5:    lda #$01
         sta $1d
-        jmp j1838
+        jmp @end
 
-b1872:  lda $0b03
+@l6:    lda $0b03
         cmp #$04
-        beq b186b
+        beq @l5
         inc $0b03
         inc $0652
-        jmp b186b
+        jmp @l5
 
-b1887:  lda $d003                                       ; sprite 1 y pos
+@down:  lda $d003                                       ; sprite 1 y pos
         cmp #$f0
-        bcs b189e
-b188e:  ldx zp_joy_button_state_p2
-b1890:  inc $d003                                       ; sprite 1 y pos
+        bcs @l9
+
+@l7:    ldx zp_joy_button_state_p2
+@l8:    inc $d003                                       ; sprite 1 y pos
         dex
-        bne b1890
+        bne @l8
         rts
 
-b1897:  lda $d003                                       ; sprite 1 y pos
+@up:    lda $d003                                       ; sprite 1 y pos
         cmp #$af
-        bcc b188e
-b189e:  ldx zp_joy_button_state_p2
-b18a0:  dec $d003                                       ; sprite 1 y pos
+        bcc @l7
+
+@l9:    ldx zp_joy_button_state_p2
+@l10:   dec $d003                                       ; sprite 1 y pos
         dex
-        bne b18a0
+        bne @l10
+
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
