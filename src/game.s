@@ -1160,8 +1160,8 @@ s1d30:  lda $fe
         lda #$01
         sta a1e01
 
-b1d41:  jsr s1d60
-        jsr s1db5
+b1d41:  jsr start_delay_p1
+        jsr start_delay_p2
         rts
 
 s1d48:  lda $ae
@@ -1177,8 +1177,10 @@ b1d4d:  lda $dc01                                       ; cia1: data port regist
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void start_delay_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1d60:  lda player_state_p1
+start_delay_p1:
+        lda player_state_p1
         beq @l0
         rts
 
@@ -1220,8 +1222,10 @@ b1da4:  lda #$20
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void start_delay_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1db5:  lda player_state_p2
+start_delay_p2:
+        lda player_state_p2
         beq @l0
         rts
 
