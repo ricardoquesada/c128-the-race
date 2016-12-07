@@ -43,10 +43,15 @@ game_main:
         jsr rom_ioinit
         jsr rom_cint
 
-        lda #$00
-        jsr s1ea0
+        lda #<p1eb0
+        sta $0a00
+        lda #>p1eb0
+        sta $0a01
+        lda #$93
+        jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
 
-j130a:  sei
+j130a:
+        sei
         lda #$00
         sta $dc0e                                       ; cia1: cia control register a
         lda $d011                                       ; vic control register 1
@@ -64,9 +69,8 @@ j130a:  sei
         lda #>irq_0
         sta $0315
 
-        lda #$c0
-        sta $0a04
-        cli
+        lda #%11000000                                  ;
+        sta $0a04                                       ; init status
 
         lda #$0f
         sta $d015                                       ; sprite display enable
@@ -123,7 +127,27 @@ j130a:  sei
         jsr init_vars_p1
         jsr init_vars_p2
 
-j13af:  jmp j13af
+        cli
+
+game_main_loop:
+        lda sync_irq_2
+        bne anim_irq_2
+
+test_irq_0:
+        lda sync_irq_0
+        beq game_main_loop
+
+anim_irq_0:
+        dec sync_irq_0
+        jsr s17b0
+        jsr s15cc
+        jmp game_main_loop
+
+anim_irq_2:
+        dec sync_irq_2
+        jsr s15b0
+        jsr s17ce
+        jmp game_main_loop
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; init_vars_p1
@@ -133,6 +157,7 @@ init_vars_p1:
         sta $21
         sta $22
         sta $23
+
         lda #$00
         sta a1e00
         sta a1e01
@@ -140,7 +165,7 @@ init_vars_p1:
         sta $0b01
         sta $ff
         sta $fe
-        sta $6a
+        sta $6a                                         ; ptr to map: LSB
         sta $6c
         sta $6e
         sta $70
@@ -148,21 +173,22 @@ init_vars_p1:
         sta $74
         sta $24
         sta $26
-        lda #$30
+
+        lda #$60                                        ; ptr to map: MSB
         sta $6b
-        lda #$32
+        lda #$62
         sta $6d
-        lda #$34
+        lda #$64
         sta $6f
-        lda #$36
+        lda #$66
         sta $71
-        lda #$38
+        lda #$68
         sta $73
-        lda #$3a
+        lda #$6a
         sta $75
-        lda #$3c
+        lda #$6c
         sta $25
-        lda #$3e
+        lda #$6e
         sta $27
 
         lda #$58
@@ -175,6 +201,7 @@ init_vars_p1:
         sta $d004                                       ; sprite 2 x pos
         lda #$90
         sta $d005                                       ; sprite 2 y pos
+
         lda #$07
         sta $fa
         lda #$00
@@ -195,7 +222,7 @@ init_vars_p2:
         sta $0b02
         sta $0b03
         sta $af
-        sta $80
+        sta $80                                         ; ptr to map: LSB
         sta $82
         sta $84
         sta $86
@@ -203,21 +230,22 @@ init_vars_p2:
         sta $8a
         sta $8c
         sta $8e
-        lda #$30
+
+        lda #$60                                        ; ptr to map: MSB
         sta $81
-        lda #$32
+        lda #$62
         sta $83
-        lda #$34
+        lda #$64
         sta $85
-        lda #$36
+        lda #$66
         sta $87
-        lda #$38
+        lda #$68
         sta $89
-        lda #$3a
+        lda #$6a
         sta $8b
-        lda #$3c
+        lda #$6c
         sta $8d
-        lda #$3e
+        lda #$6e
         sta $8f
 
         lda #$02
@@ -227,22 +255,26 @@ init_vars_p2:
         sta $d006                                       ;sprite 3 x pos
         lda #$98
         sta $d007                                       ;sprite 3 y pos
+
         lda #$04
         sta $94
         lda #$00
         sta a1e04
         sta a1e05
         sta $ae
+
         lda #$30
         sta $95
         sta $96
         sta $97
+
         lda #$07
         sta $aa
         lda #$80
         sta $d002                                       ;sprite 1 x pos
         lda #$d0
         sta $d003                                       ;sprite 1 y pos
+
         lda #$00
         sta $29
         sta $ad
@@ -258,93 +290,6 @@ init_vars_p2:
         rts
 
 
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void irq_0()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_0:
-        lda #$81
-        sta $d012                                       ; raster position
-        nop
-        nop
-        lda #$18
-        sta $d018                                       ; vic memory control register
-        lda #$02
-        sta $d021                                       ; background color 0
-
-        lda $fa
-        and #$c7
-        sta $d016                                       ; vic control register 2
-
-        lda #$01
-        sta $d01a                                       ; vic interrupt mask register (imr)
-
-        lda #<irq_1
-        sta $0314
-        lda #>irq_1
-        sta $0315
-
-        lda #$01
-        sta $d019                                       ; vic interrupt request register (irr)
-        jsr s17b0
-        jsr s15cc
-        jmp $ff33                                       ; $ff33 return from interrupt
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void irq_1()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_1:
-        lda #$aa
-        sta $d012                                       ; raster position
-        nop
-        nop
-        lda #$14
-        sta $d018                                       ; vic memory control register
-        lda #$00
-        sta $d021                                       ; background color 0
-        sta $d020                                       ; border color
-        lda #$c0
-        sta $d016                                       ; vic control register 2
-
-        lda #<irq_2
-        sta $0314
-        lda #>irq_2
-        sta $0315
-
-        lda #$01
-        sta $d019                                       ; vic interrupt request register (irr)
-        jmp $ff33                                       ; $ff33 return from interrupt
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; void irq_2()
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_2:
-        lda #$12
-        sta $d012                                       ; raster position
-        nop
-        nop
-        lda #$18
-        sta $d018                                       ; vic memory control register
-        lda #$02
-        sta $d021                                       ; background color 0
-        lda $d021                                       ; background color 0
-
-        lda $aa
-        and #$c7
-        sta $d016                                       ; vic control register 2
-
-        lda #$01
-        sta $d01a                                       ; vic interrupt mask register (imr)
-
-        lda #<irq_0
-        sta $0314
-        lda #>irq_0
-        sta $0315
-
-        lda #$01
-        sta $d019                                       ; vic interrupt request register (irr)
-        jsr s15b0
-        jsr s17ce
-        jmp $ff33                                       ; $ff33 return from interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -384,12 +329,14 @@ s1500:  lda $ff
         bne @l5
 
         lda $6b
-        cmp #$31
+        cmp #$61
         bne @l6
+
         lda $6a
         cmp #$ff
         beq @l8
-@l6:    clc
+
+@l6:    clc                                             ; p1: map LSB
         inc $6a
         inc $6c
         inc $6e
@@ -399,7 +346,8 @@ s1500:  lda $ff
         inc $24
         inc $26
         bne @l7
-        inc $6b
+
+        inc $6b                                         ; p1: map MSB
         inc $6d
         inc $6f
         inc $71
@@ -624,14 +572,15 @@ s1700:  lda $af
         bne @l5
 
         lda $81
-        cmp #$31
+        cmp #$61
         bne @l6
+
         lda $80
         cmp #$ff
         beq @l9
 
 @l6:    clc
-        inc $80
+        inc $80                                         ; map p2: LSB
         inc $82
         inc $84
         inc $86
@@ -640,7 +589,8 @@ s1700:  lda $af
         inc $8c
         inc $8e
         bne @l7
-        inc $81
+
+        inc $81                                         ; map p2: MSB
         inc $83
         inc $85
         inc $87
@@ -688,7 +638,8 @@ s17b0:  lda a1e04
         bne @l0
         rts
 
-@l0:    jsr s1700
+@l0:
+        jsr s1700
         jsr s1800
         jsr s18d0
         jsr s1af8
@@ -1315,13 +1266,6 @@ b1e8d:  sta $0680,x
         bpl b1e8d
         jmp init_vars_p2
 
-s1ea0:  lda #>p1eb0
-        sta $0a01
-        lda #<p1eb0
-        sta $0a00
-        lda #$93
-        jmp rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
-
 p1eb0:
         lda #$93
         jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
@@ -1349,3 +1293,102 @@ a1e06:  .byte $12
 label_txt_p1:
         .incbin "therace-game-central-map.bin"
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; .segment "LOWCODE"
+; IRQ must be in LOWCODE
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+.segment "LOWCODE"
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void irq_0()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+irq_0:
+        lda #$81
+        sta $d012                                       ; raster position
+        nop
+        nop
+        lda #%00011110                                  ; charset = $3800, screen = $400
+        sta $d018                                       ; vic memory control register
+        lda #$02
+        sta $d021                                       ; background color 0
+
+        lda $fa
+        and #$c7
+        sta $d016                                       ; vic control register 2
+
+        lda #$01
+        sta $d01a                                       ; vic interrupt mask register (imr)
+
+        lda #<irq_1
+        sta $0314
+        lda #>irq_1
+        sta $0315
+
+        lda #$01
+        sta $d019                                       ; vic interrupt request register (irr)
+        inc sync_irq_0
+        jmp $ff33                                       ; $ff33 return from interrupt
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void irq_1()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+irq_1:
+        lda #$aa
+        sta $d012                                       ; raster position
+        nop
+        nop
+        lda #$14
+        sta $d018                                       ; vic memory control register
+        lda #$00
+        sta $d021                                       ; background color 0
+        sta $d020                                       ; border color
+        lda #$c0
+        sta $d016                                       ; vic control register 2
+
+        lda #<irq_2
+        sta $0314
+        lda #>irq_2
+        sta $0315
+
+        lda #$01
+        sta $d019                                       ; vic interrupt request register (irr)
+        jmp $ff33                                       ; $ff33 return from interrupt
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void irq_2()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+irq_2:
+        lda #$12
+        sta $d012                                       ; raster position
+        nop
+        nop
+        lda #%00011110                                  ; charset = $3800, screen = $400
+        sta $d018                                       ; vic memory control register
+        lda #$02
+        sta $d021                                       ; background color 0
+        lda $d021                                       ; background color 0
+
+        lda $aa
+        and #$c7
+        sta $d016                                       ; vic control register 2
+
+        lda #$01
+        sta $d01a                                       ; vic interrupt mask register (imr)
+
+        lda #<irq_0
+        sta $0314
+        lda #>irq_0
+        sta $0315
+
+        lda #$01
+        sta $d019                                       ; vic interrupt request register (irr)
+        inc sync_irq_2
+        jmp $ff33                                       ; $ff33 return from interrupt
+
+sync_irq_0: .byte  0
+sync_irq_2: .byte  0
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; .segment "LEVEL1"
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+.segment "LEVEL1"
+        .incbin "therace-level1-map.bin"
