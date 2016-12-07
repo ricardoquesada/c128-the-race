@@ -177,7 +177,7 @@ init_vars_p1:
 
         lda #$00
         sta player_state_p1
-        sta a1e01
+        sta ready_to_start_p1
         sta $0b00
         sta $0b01
         sta $ff
@@ -280,7 +280,7 @@ init_vars_p2:
 
         lda #$00
         sta player_state_p2
-        sta a1e05
+        sta ready_to_start_p2
         sta $ae
 
         lda #$30
@@ -428,8 +428,8 @@ update_p1:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s15cc:  jsr s1d30
-        jsr s1d48
+s15cc:  jsr check_start_p1
+        jsr check_start_p2
         jsr s1c10
         jsr s1c60
         jsr s1e50
@@ -874,7 +874,7 @@ print_time_p1:
         beq @l0
         lda #$00
         sta player_state_p1
-        sta a1e01
+        sta ready_to_start_p1
         rts
 
 @l0:    ldx #$02
@@ -891,7 +891,7 @@ print_time_p2:
         beq @l0
         lda #$00
         sta player_state_p2
-        sta a1e05
+        sta ready_to_start_p2
         rts
 
 @l0:    ldx #$02
@@ -1038,7 +1038,7 @@ s1c10:  lda $fe
         sta $28
 b1c53:  rts
 
-b1c57:  jsr s1cac
+b1c57:  jsr play_collsion_or_wait_p1
         jsr inc_score_p1
         rts
 
@@ -1074,7 +1074,7 @@ b1c92:  bne b1ca4
         sta $29
 b1ca3:  rts
 
-b1ca4:  jsr s1cf0
+b1ca4:  jsr play_collsion_or_wait_p2
         jsr inc_score_p2
         rts
 
@@ -1085,9 +1085,10 @@ play_collsion_p1:
         sta $b0
         jmp j1cb6
 
-s1cac:  lda #$21
+play_collsion_or_wait_p1:
+        lda #$21
         sta $b0
-        dec a1cab
+        dec sound_collsion_delay_p1
         beq j1cb6
         rts
 
@@ -1095,7 +1096,7 @@ j1cb6:
         lda #$00
         sta $d404                                       ; voice 1: control register
         lda #$08
-        sta a1cab
+        sta sound_collsion_delay_p1
         lda #$00
         sta $d400                                       ; voice 1: frequency control - low-byte
         lda #$0f
@@ -1119,10 +1120,10 @@ play_collsion_p2:
         sta $b1
         jmp s1cfa
 
-s1cf0:
+play_collsion_or_wait_p2:
         lda #$21
         sta $b1
-        dec a1ce8
+        dec sound_collsion_delay_p2
         beq s1cfa
         rts
 
@@ -1130,7 +1131,7 @@ s1cfa:
         lda #$00
         sta $d404                                       ; voice 1: control register
         lda #$08
-        sta a1ce8
+        sta sound_collsion_delay_p2
         lda #$00
         sta $d400                                       ; voice 1: frequency control - low-byte
         lda #$15
@@ -1150,30 +1151,34 @@ s1cfa:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-s1d30:  lda $fe
+check_start_p1:
+        lda $fe
         beq @l0
         rts
 
 @l0:    lda $dc00                                       ; cia1: data port register a
         and #$10
-        bne b1d41
-        lda #$01
-        sta a1e01
+        bne update_countdown
 
-b1d41:  jsr start_delay_p1
+        lda #$01
+        sta ready_to_start_p1
+
+update_countdown:
+        jsr start_delay_p1
         jsr start_delay_p2
         rts
 
-s1d48:  lda $ae
-        beq b1d4d
+check_start_p2:
+        lda $ae
+        beq @l0
         rts
 
-b1d4d:  lda $dc01                                       ; cia1: data port register b
+@l0:    lda $dc01                                       ; cia1: data port register b
         and #$10
-        bne b1d41
+        bne update_countdown
         lda #$01
-        sta a1e05
-        jmp b1d41
+        sta ready_to_start_p2
+        jmp update_countdown
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1184,11 +1189,11 @@ start_delay_p1:
         beq @l0
         rts
 
-@l0:    lda a1e01
+@l0:    lda ready_to_start_p1
         bne @l1
         rts
 
-@l1:    lda a1e05
+@l1:    lda ready_to_start_p2
         bne b1da4
         lda $0591
         cmp #$20
@@ -1229,11 +1234,11 @@ start_delay_p2:
         beq @l0
         rts
 
-@l0:    lda a1e05
+@l0:    lda ready_to_start_p2
         bne @l1
         rts
 
-@l1:    lda a1e01
+@l1:    lda ready_to_start_p1
         bne b1da4
         lda $0631
         cmp #$20
@@ -1297,6 +1302,8 @@ b1e3d:  lda #$39
         sta zp_time_2_p2
         rts
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 s1e50:  lda $28
         bne b1e55
 b1e54:  rts
@@ -1341,21 +1348,20 @@ p1eb0:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; variables
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-f193d:  .byte 0
-p1_collision:  .byte 0
-p2_collision:  .byte 0
+f193d:                          .byte 0
+p1_collision:                   .byte 0
+p2_collision:                   .byte 0
 
-a1ce8:  .byte $04
+sound_collsion_delay_p1:        .byte $08
+sound_collsion_delay_p2:        .byte $08
 
-a1cab:  .byte $08
+player_state_p1:                .byte $00
+ready_to_start_p1:              .byte $00
+a1e02:                          .byte $2a
 
-player_state_p1:        .byte $00
-a1e01:                  .byte $00
-a1e02:                  .byte $2a
-
-player_state_p2:        .byte $00
-a1e05:                  .byte $00
-a1e06:                  .byte $12
+player_state_p2:                .byte $00
+ready_to_start_p2:              .byte $00
+a1e06:                          .byte $12
 
 
 label_txt_p1:
