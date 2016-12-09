@@ -28,15 +28,24 @@
 ; PREDEFINED LABELS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 
-.segment "INIT"
-.segment "STARTUP"
+.segment "CODE"
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void main()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main:
-        lda #$0e                                        ; out basic, in kernal, in vic (no charset)
+
+.if .defined(__C128__)
+        lda #$0e                                        ; out basic, in kernal, in vic i/o (no charset)
         sta $ff00
+
+        lda #%11000000                                  ; no VCD charset, disable screen editor
+        sta $0a04                                       ; init status
+
+.elseif .defined(__C64__)
+        lda #$36                                        ; out basic, in kernal, in vic i/o (no charset)
+        sta $01
+.endif
 
         jsr cracktro_main
         jsr intro_main

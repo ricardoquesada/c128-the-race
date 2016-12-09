@@ -36,8 +36,15 @@ zp_delay = $ff
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 rom_bsouti = $ffd2
 
-.segment "INIT"
-.segment "STARTUP"
+.if .defined(__C128__)
+        default_irq_entry = $fa65
+        default_irq_exit = $ff33
+.elseif .defined(__C64__)
+        default_irq_entry = $ea31
+        default_irq_exit = $ea81
+.endif
+
+.segment "CODE"
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void intro_main()
@@ -88,9 +95,6 @@ intro_main:
         sta $db00,x
         dex
         bne @l0
-
-        lda #$c0                                        ; no vcd charset, no editor
-        sta $0a04                                       ; init status
 
         lda #$ff
         ldx #$00
@@ -150,8 +154,6 @@ intro_main:
         lda #$08
         sta zp_fade_in_idx                              ; color for scroll row
 
-        lda #%00011110                                  ; charset = $3800, screen = $400
-        sta $0a2c                                       ; shadow for $d018
 
         lda #$3e                                        ; points to $f80
         sta $07f8                                       ; sprite pointers
@@ -162,10 +164,15 @@ intro_main:
         sta $07fc
         sta $07fd
 
+.if .defined(__C128__)
+        lda #%00011110                                  ; charset = $3800, screen = $400
+        sta $0a2c                                       ; shadow for $d018
+
         lda #<p29cd
         sta $0a00                                       ; basic restart routine
         lda #>p29cd
         sta $0a01
+.endif
 
         lda #%01000000
         sta $d010                                       ; sprites 0-7 msb of x coordinate
@@ -194,19 +201,19 @@ irq_0:
         beq b28f9                                       ; 3 = unused
         cmp #$04
         beq b28cd                                       ; 4 = check space
-        jmp $fa65                                       ;$fa65 (irq) normal entry
+        jmp default_irq_entry                           ; (irq) normal entry
 
 b28e7:  jsr do_scroll                                   ; mode = 0
-        jmp $fa65
+        jmp default_irq_entry
 
 b28ed:  jsr do_fade_out                                 ; mode = 1
-        jmp $fa65
+        jmp default_irq_entry
 
 b28f3:  jsr do_fade_in                                  ; mode = 2
-        jmp $fa65
+        jmp default_irq_entry
 
 b28f9:  jsr $2a50                                       ; mode = 3
-        jmp $fa65                                       ; XXX: $2a50 is garbage
+        jmp default_irq_entry                           ; XXX: $2a50 is garbage
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -300,7 +307,7 @@ check_space:
         lda $dc01
         and #$10
         beq @l0
-        jmp $fa65                                       ;$fa65 (irq) normal entry
+        jmp default_irq_entry                           ; (irq) normal entry
 
 @l0:
 p29cd:
@@ -308,13 +315,13 @@ p29cd:
         sta end_intro
 
         sei
-        ldx #<$fa65
-        ldy #>$fa65
+        ldx #<default_irq_entry
+        ldy #>default_irq_entry
         stx $0314
         sty $0315
         cli
 
-        jmp $fa65                                       ;$fa65 (irq) normal entry
+        jmp default_irq_entry                           ; (irq) normal exit
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;

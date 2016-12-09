@@ -21,8 +21,7 @@
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 .include "c64.inc"                      ; c64 constants
 
-.segment "INIT"
-.segment "STARTUP"
+.segment "CODE"
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; ZP ABSOLUTE ADRESSES
@@ -41,6 +40,14 @@ zp_scroll_speed = $ff
 rom_bsouti = $ffd2
 rom_jsetmsg = $ff90
 
+.if .defined(__C128__)
+        default_irq_entry = $fa65
+        default_irq_exit = $ff33
+.elseif .defined(__C64__)
+        default_irq_entry = $ea31
+        default_irq_exit = $ea81
+.endif
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; cracktro_main
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -48,9 +55,6 @@ rom_jsetmsg = $ff90
 cracktro_main:
         lda #$00                                        ; no kernal messages displayed
         jsr rom_jsetmsg                                 ; Control OS Messages
-
-        lda #%11000000                                  ; no VCD charset, disable screen editor
-        sta $0a04                                       ; init status
 
         sei
         lda #<irq_0
@@ -121,21 +125,25 @@ main_loop:
         cmp #$ef
         bne main_loop
 
+        lda #$ea                                        ; $ea = nop
+        sta a14b0
+
+.if .defined(__C128__)
         lda #$00                                        ; space pressed...
         sta $a1                                         ; so reset jiffy time
         sta $a2
 
-        lda #$ea                                        ; $ea = nop
-        sta a14b0
-
 @l0:    lda $a2                                         ; jiffy time: lo
         cmp #$a0                                        ; turnoff irq?
         bne @l0
+.else
+.error "implement delay for c64"
+.endif
 
         sei
-        lda #<$fa65
+        lda #<default_irq_entry
         sta $0314                                       ; set IRQ vector
-        lda #>$fa65
+        lda #>default_irq_entry
         sta $0315
         cli
 
@@ -227,7 +235,7 @@ irq_0:
         lda $d019                               ; vic interrupt request register (irr)
         sta $d019                               ; vic interrupt request register (irr)
 
-        jmp $fa65                               ; $fa65 (irq) normal entry
+        jmp default_irq_entry                   ; irq entry (updates basic variables)
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; irq_1
@@ -304,7 +312,8 @@ irq_2:
 irq_exit:
         lda $d019                               ; vic interrupt request register (irr)
         sta $d019                               ; vic interrupt request register (irr)
-        jmp $ff33                               ; $ff33 return from interrupt
+
+        jmp default_irq_exit                    ; return from interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; irq_3

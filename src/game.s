@@ -63,6 +63,12 @@ rom_cint = $ff81
 rom_ioinit = $ff84
 rom_restor = $ff8a
 
+.if .defined(__C128__)
+        default_irq = $ff33
+.elseif .defined(__C64__)
+        default_irq = $ea81
+.endif
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; .segment "GAME_CODE"
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -77,10 +83,13 @@ game_main:
         jsr rom_ioinit
         jsr rom_cint
 
+.if .defined(__C128__)
         lda #<p1eb0
         sta $0a00
         lda #>p1eb0
         sta $0a01
+.endif
+
         lda #$93
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
 
@@ -106,9 +115,6 @@ game_restart:
         lda #0
         sta sync_irq_0
         sta sync_irq_2
-
-        lda #%11000000                                  ;
-        sta $0a04                                       ; init status
 
         lda #$0f
         sta $d015                                       ; sprite display enable
@@ -1469,7 +1475,7 @@ irq_0:
         lda #$01
         sta $d019                                       ; vic interrupt request register (irr)
         inc sync_irq_0
-        jmp $ff33                                       ; $ff33 return from interrupt
+        jmp default_irq                                 ; return from interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void irq_1()
@@ -1494,7 +1500,7 @@ irq_1:
 
         lda #$01
         sta $d019                                       ; vic interrupt request register (irr)
-        jmp $ff33                                       ; $ff33 return from interrupt
+        jmp default_irq                                 ; return from interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void irq_2()
@@ -1525,7 +1531,7 @@ irq_2:
         lda #$01
         sta $d019                                       ; vic interrupt request register (irr)
         inc sync_irq_2
-        jmp $ff33                                       ; $ff33 return from interrupt
+        jmp default_irq                                 ; return from interrupt
 
 sync_irq_0: .byte  0
 sync_irq_2: .byte  0
