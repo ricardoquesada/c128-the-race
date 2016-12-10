@@ -49,13 +49,13 @@ therace64: ${SRC}
 
 d64:
 	echo "Generating d64 file..."
-	$(C1541) -format "the race,rq" d64 $(D71_IMAGE)
-	$(C1541) $(D71_IMAGE) -write bin/therace64.prg therace
-	$(C1541) $(D71_IMAGE) -list
+	$(C1541) -format "the race,rq" d64 $(D64_IMAGE)
+	$(C1541) $(D64_IMAGE) -write bin/therace64.prg therace
+	$(C1541) $(D64_IMAGE) -list
 
 run64:
 	echo "Running game"
-	$(X64) -verbose -moncommands bin/therace64.sym $(D71_IMAGE)
+	$(X64) -verbose -moncommands bin/therace64.sym $(D64_IMAGE)
 
 clean:
 	rm -f src/*.o bin/*.sym bin/*.prg $(D71_IMAGE) $(D64_IMAGE)
