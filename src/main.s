@@ -35,6 +35,8 @@
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main:
 
+        sei
+
 .if .defined(__C128__)
         lda #$0e                                        ; out basic, in kernal, in vic i/o (no charset)
         sta $ff00
@@ -60,6 +62,7 @@ main:
         lda $dd0d
         asl $d019
 
+        cli
 
         jsr cracktro_main
         jsr intro_main

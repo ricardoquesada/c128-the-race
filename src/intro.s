@@ -19,17 +19,10 @@
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; ZP ABSOLUTE ADRESSES
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-zp_scroll_addr_lo = $6a
-zp_scroll_addr_hi = $6b
-zp_scroll_mode = $6c
-zp_fade_out_idx = $6d
-zp_fade_in_idx = $6e
-zp_scroll_speed = $fa                                   ; used in vic
-zp_screen_row0_lo = $fb
-zp_screen_row0_hi = $fc
-zp_screen_row1_lo = $fd
-zp_screen_row1_hi = $fe
-zp_delay = $ff
+zp_scroll_mode = $fb
+zp_fade_out_idx = $fc
+zp_fade_in_idx = $fd
+zp_scroll_speed = $fe                                   ; used in vic
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; PREDEFINED LABELS
@@ -52,39 +45,33 @@ rom_bsouti = $ffd2
 .export intro_main
 intro_main:
         sei
-        ldx #<irq_0
-        ldy #>irq_0
+
+.if .defined(__C128__)
+        lda #<p29cd
+        sta $0a00                                       ; basic restart routine
+        lda #>p29cd
+        sta $0a01
+.endif
+
+        ldx #<intro_irq_0
+        ldy #>intro_irq_0
         stx $0314
         sty $0315
-
-        lda #1
-        sta $d01a                                       ; enable irq interrupt
-        cli
-
-        lda #$07
-        sta zp_scroll_speed
-        lda #$00
-        sta zp_delay
-        sta zp_screen_row0_lo
-        lda #$04
-        sta zp_screen_row0_hi
-        sta zp_screen_row1_hi
-        lda #$28
-        sta zp_screen_row1_lo
-
-        lda #$1b
-        sta $d011                                       ; vic control register 1
 
         lda #(50 + 25*8)
         sta $d012                                       ; raster position
 
+        lda #1
+        sta $d01a                                       ; enable irq interrupt
+
+        lda #$03
+        sta zp_scroll_speed
+
+        lda #$1b
+        sta $d011                                       ; vic control register 1
+
         lda #$c8
         sta $d016                                       ; vic control register 2
-
-        ldx #<scroll_txt
-        ldy #>scroll_txt
-        stx zp_scroll_addr_lo
-        sty zp_scroll_addr_hi
 
         lda #$93
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
@@ -152,11 +139,11 @@ intro_main:
 
         lda #00
         sta zp_scroll_mode
+
         lda #$0f
         sta zp_fade_out_idx
-        lda #$08
-        sta zp_fade_in_idx                              ; color for scroll row
-
+        lda #$0f
+        sta zp_fade_in_idx
 
         lda #$c8                                        ; points to $3200
         sta $07f8                                       ; sprite pointers
@@ -167,13 +154,6 @@ intro_main:
         sta $07fc
         sta $07fd
 
-.if .defined(__C128__)
-        lda #<p29cd
-        sta $0a00                                       ; basic restart routine
-        lda #>p29cd
-        sta $0a01
-.endif
-
         lda #%00011110                                  ; charset = $3800, screen = $400
         sta $d018
 
@@ -183,6 +163,8 @@ intro_main:
 
         lda #$0b
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
+
+        cli
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -196,7 +178,7 @@ main_loop:
 
 @l0:
         lda irq_sync                                    ; should sync with irq?
-        bne main_loop
+        beq main_loop
 
         dec irq_sync
 
@@ -214,6 +196,8 @@ main_loop:
 
         cmp #$04
         beq b28cd                                       ; 4 = check space
+
+@error: jmp @error
 
 
 b28e7:  jsr do_scroll                                   ; mode = 0
@@ -234,15 +218,38 @@ b28cd:  jsr check_space                                 ; mode = 4
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void irq_0()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-irq_0:
+intro_irq_0:
         asl $d019
 
         lda zp_scroll_speed
         ora #%00010000                                  ; disable blank
         sta $d011                                       ; smooth scroll y
 
-        inc irq_sync
+        lda #(50 + 8 * 15)
+        sta $d012
 
+        ldx #<intro_irq_1
+        ldy #>intro_irq_1
+        stx $0314
+        sty $0315
+
+        jmp default_irq_exit
+
+intro_irq_1:
+        asl $d019
+
+        lda #50
+        sta $d012
+
+        lda #%00010000
+        sta $d011
+
+        ldx #<intro_irq_0
+        ldy #>intro_irq_0
+        stx $0314
+        sty $0315
+
+        inc irq_sync
         jmp default_irq_exit
 
 
@@ -250,13 +257,12 @@ irq_0:
 ; void do_scroll()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 do_scroll:
-        dec zp_delay
-        beq b2907
+        dec delay_scroll
+        bmi @l0
         rts
 
-b2907:  lda #$02
-        sta zp_delay
-
+@l0:    lda #$02
+        sta delay_scroll
 
         ldx zp_scroll_speed
         dex
@@ -264,73 +270,43 @@ b2907:  lda #$02
         and #%00000111
         sta zp_scroll_speed
 
-        cmp #05
+        cmp #07
         beq do_the_scroll
         rts
 
 do_the_scroll:
 
-        inc $d020
+        ldx #39
 
-        ldx #$08
-@l1:    ldy #$27
-@l0:    lda (zp_screen_row1_lo),y
-        sta (zp_screen_row0_lo),y
-        dey
-        bpl @l0
+@l0:
+        .repeat 8, YY
+                lda $0400+ 40 * (1 + YY),x
+                sta $0400 + 40 * (0 + YY),x
+        .endrepeat
 
-        clc
-        lda zp_screen_row1_lo
-        adc #$28
-        sta zp_screen_row1_lo
-        lda zp_screen_row1_hi
-        adc #$00
-        sta zp_screen_row1_hi
-
-        clc
-        lda zp_screen_row0_lo
-        adc #$28
-        sta zp_screen_row0_lo
-        lda zp_screen_row0_hi
-        adc #$00
-        sta zp_screen_row0_hi
+@source_addr = *+1
+        lda scroll_txt,x
+        sta $0400 + 40 * 8,x
 
         dex
-        bpl @l1
+        bpl @l0
 
-        ldy #$27
-@l2:    lda (zp_scroll_addr_lo),y
-        beq b2970
-        sta (zp_screen_row0_lo),y
-        dey
-        bpl @l2
+        inc scroll_row                          ; last row for scroll ?
+        lda scroll_row
+        cmp #25                                 ; end? loop the scroll
+        beq @end_scroll
 
-s2954:  ldx #<$0400
-        ldy #>$0400
-        stx zp_screen_row0_lo
-        sty zp_screen_row0_hi
-        sty zp_screen_row1_hi
-        ldx #$28
-        stx zp_screen_row1_lo
+        clc                                     ; else, increment source addr
+        lda @source_addr                         ; and return
+        adc #40
+        sta @source_addr
+        bcc @l1
+        inc @source_addr+1
+@l1:    rts
 
-        clc
-        lda zp_scroll_addr_lo
-        adc #$28
-        sta zp_scroll_addr_lo
-        lda zp_scroll_addr_hi
-        adc #$00
-        sta zp_scroll_addr_hi
-        rts
-
-b2970:  jsr s2954
-        ldx #<scroll_txt                                ; XXX: it was fixed to $1600. fixed
-        ldy #>scroll_txt
-        stx zp_scroll_addr_lo
-        sty zp_scroll_addr_hi
+@end_scroll:
         lda #$01
         sta zp_scroll_mode
-
-        dec $d020
         rts
 
 
@@ -354,13 +330,13 @@ p29cd:
 ; void do_fade_out()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 do_fade_out:
-        lda zp_delay
-        beq @l3
-        dec zp_delay
+        dec delay_fadeout
+        bmi @l3
         rts
 
-@l3:    lda #$10
-        sta zp_delay
+@l3:    lda #$00
+        sta delay_fadeout
+
         ldx zp_fade_out_idx
         lda colors_fade_out,x
         ldy #$00
@@ -368,14 +344,12 @@ do_fade_out:
         sta $d900,y
         dey
         bne @l2
-        dex
-        stx zp_fade_out_idx
-        beq @l1
+
+        dec zp_fade_out_idx
+        bmi @l1
         rts
 
-@l1:    lda #$00
-        sta $f1
-        lda #$93
+@l1:    lda #$93
         jsr rom_bsouti                                  ;$ffd2 (ind) ibsout output vector, chrout [ef79]
 
         ldx #$27
@@ -392,13 +366,13 @@ do_fade_out:
 ; void do_fade_in()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 do_fade_in:
-        lda zp_delay
-        beq @l0
-        dec zp_delay
+        dec delay_fadein
+        bmi @l0
         rts
 @l0:
-        lda #$10
-        sta zp_delay
+        lda #$00
+        sta delay_fadein
+
         ldx zp_fade_in_idx
         lda colors_fade_in,x
         ldy #$00
@@ -407,10 +381,8 @@ do_fade_in:
         dey
         bne @l1
 
-        dex
-        stx zp_fade_in_idx
-        cpx #$00
-        beq @l2
+        dec zp_fade_in_idx
+        bmi @l2
         rts
 
 @l2:    lda #$04
@@ -420,19 +392,20 @@ do_fade_in:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; variables
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-end_intro:
-        .byte 0                                         ; boolean: 1 if intro should end
-
-irq_sync:
-        .byte 0
+end_intro:      .byte 0                 ; boolean: 1 if intro should end
+irq_sync:       .byte 0                 ; boolean
+scroll_row:     .byte 0                 ; rows scrolled
+delay_scroll:   .byte 0
+delay_fadeout:  .byte 0
+delay_fadein:   .byte 0
 
 colors_fade_out:
-        .byte $00, $00, $00, $00,  $0f, $01, $01, $01
-        .byte $01, $01, $01, $01,  $01, $01, $01, $01
+        .byte $00, $00, $00, $00,  $0b, $0b, $0c, $0c
+        .byte $0f, $0f, $01, $01,  $01, $01, $01, $01
 
 colors_fade_in:
-        .byte $00, $01, $0f, $00,  $00, $00, $00, $00
-        .byte $00, $00, $00, $00,  $02, $03, $04, $01
+        .byte $01, $01, $01, $01,  $0f, $0f, $0f, $0f
+        .byte $0c, $0c, $0c, $0c,  $0b, $0b, $0b, $0b
 
 label_0:
                 ;0123456789012345678901234567890123456789
@@ -441,7 +414,7 @@ label_0:
 
 scroll_txt:
         .incbin "therace-scroll-map.bin"
-        .res 16,0
+        .byte 0
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; segment "SPRITES_INTRO" (@ $3200)
