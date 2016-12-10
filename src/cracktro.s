@@ -136,10 +136,10 @@ main_loop:
         bne @l0
 
         sei
-        lda #<default_irq_entry
-        sta $0314                                       ; set IRQ vector
-        lda #>default_irq_entry
-        sta $0315
+        ldx #<default_irq_entry
+        ldy #>default_irq_entry
+        stx $0314                                       ; set IRQ vector
+        sty $0315
         cli
 
         rts
@@ -715,9 +715,9 @@ counter_delay:
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; segment "SPRITES"
+; segment "SPRITES_CRACKTRO"
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-.segment "SPRITES"
+.segment "SPRITES_CRACKTRO"
         .incbin "sprites.bin"
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;

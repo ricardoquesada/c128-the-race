@@ -98,10 +98,7 @@ intro_main:
 
         lda #$ff
         ldx #$00
-@l1:    sta $0f80,x                                     ; black sprite
-        nop
-        nop
-        nop
+@l1:    sta $3200,x                                     ; black sprite
         dex
         bne @l1
 
@@ -155,7 +152,7 @@ intro_main:
         sta zp_fade_in_idx                              ; color for scroll row
 
 
-        lda #$3e                                        ; points to $f80
+        lda #$c8                                        ; points to $3200
         sta $07f8                                       ; sprite pointers
         sta $07f9
         sta $07fa
@@ -414,3 +411,9 @@ scroll_txt:
         .incbin "therace-scroll-map.bin"
         .byte $20
         .byte 0
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; segment "SPRITES_INTRO" (@ $3200)
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+.segment "SPRITES_INTRO"
+        .res 512, $ff

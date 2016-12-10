@@ -37,7 +37,7 @@ d71:
 
 run128:
 	echo "Running game"
-	$(X128) -verbose -moncommands bin/therace.sym $(D71_IMAGE)
+	$(X128) -verbose -moncommands bin/therace128.sym $(D71_IMAGE)
 
 #
 # c64
@@ -55,7 +55,7 @@ d64:
 
 run64:
 	echo "Running game"
-	$(X64) -verbose -moncommands bin/therace.sym $(D71_IMAGE)
+	$(X64) -verbose -moncommands bin/therace64.sym $(D71_IMAGE)
 
 clean:
 	rm -f src/*.o bin/*.sym bin/*.prg $(D71_IMAGE) $(D64_IMAGE)
