@@ -58,7 +58,6 @@ zp_already_in_collision_p1 = $ff                ; boolean
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; predefined labels
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-rom_bsouti = $ffd2
 rom_cint = $ff81
 rom_ioinit = $ff84
 rom_restor = $ff8a
@@ -84,10 +83,10 @@ game_main:
         jsr rom_cint
 
 .if .defined(__C128__)
-        lda #<p1eb0
-        sta $0a00
-        lda #>p1eb0
-        sta $0a01
+        ldx #<nmi_handler
+        ldy #>nmi_handler
+        stx $0a00
+        sty $0a01
 .endif
 
 game_restart:
@@ -801,6 +800,7 @@ update_collision_state_p1:
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void read_joy_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 read_joy_p2:
         lda $dc01                                       ; cia1: data port register b
@@ -950,6 +950,7 @@ update_time_p1:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void print_time_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 print_time_p1:
         lda zp_finished_p1
@@ -968,6 +969,7 @@ print_time_p1:
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void print_time_p2()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 print_time_p2:
         lda zp_finished_p2
@@ -1230,6 +1232,7 @@ s1cfa:
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void check_start_p1()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 check_start_p1:
         lda zp_finished_p1
@@ -1248,6 +1251,9 @@ update_countdown:
         jsr start_delay_p2
         rts
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void check_start_p2()
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 check_start_p2:
         lda zp_finished_p2
         beq @l0
@@ -1433,8 +1439,9 @@ b1e7a:  lda $dc01                                       ; cia1: data port regist
         jmp init_vars_p2
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; void nmi_handler()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-p1eb0:
+nmi_handler:
         jmp game_restart
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1485,16 +1492,17 @@ irq_0:
         and #$c7
         sta $d016                                       ; vic control register 2
 
-        lda #$01
+        lda #$01                                        ; only raster irq. disable sprite/background collision. why?
         sta $d01a                                       ; vic interrupt mask register (imr)
 
-        lda #<irq_1
-        sta $0314
-        lda #>irq_1
-        sta $0315
+        ldx #<irq_1
+        ldy #>irq_1
+        stx $0314
+        sty $0315
 
         lda #$01
-        sta $d019                                       ; vic interrupt request register (irr)
+        sta $d019
+
         inc sync_irq_0
         jmp default_irq                                 ; return from interrupt
 
@@ -1514,13 +1522,14 @@ irq_1:
         lda #$c0
         sta $d016                                       ; vic control register 2
 
-        lda #<irq_2
-        sta $0314
-        lda #>irq_2
-        sta $0315
+        ldx #<irq_2
+        ldy #>irq_2
+        stx $0314
+        sty $0315
 
         lda #$01
-        sta $d019                                       ; vic interrupt request register (irr)
+        sta $d019
+
         jmp default_irq                                 ; return from interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1541,16 +1550,17 @@ irq_2:
         and #$c7
         sta $d016                                       ; vic control register 2
 
-        lda #$01
+        lda #$01                                        ; only raster irq. disable sprite/background collision. why?
         sta $d01a                                       ; vic interrupt mask register (imr)
 
-        lda #<irq_0
-        sta $0314
-        lda #>irq_0
-        sta $0315
+        ldx #<irq_0
+        ldy #>irq_0
+        stx $0314
+        sty $0315
 
         lda #$01
-        sta $d019                                       ; vic interrupt request register (irr)
+        sta $d019
+
         inc sync_irq_2
         jmp default_irq                                 ; return from interrupt
 
