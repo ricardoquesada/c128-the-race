@@ -128,17 +128,12 @@ main_loop:
         lda #$ea                                        ; $ea = nop
         sta a14b0
 
-.if .defined(__C128__)
-        lda #$00                                        ; space pressed...
-        sta $a1                                         ; so reset jiffy time
-        sta $a2
+        lda #0
+        sta counter_delay
 
-@l0:    lda $a2                                         ; jiffy time: lo
-        cmp #$a0                                        ; turnoff irq?
+@l0:    lda counter_delay
+        cmp #128                                         ; wait two seconds
         bne @l0
-.else
-.error "implement delay for c64"
-.endif
 
         sei
         lda #<default_irq_entry
@@ -235,6 +230,7 @@ irq_0:
         lda $d019                               ; vic interrupt request register (irr)
         sta $d019                               ; vic interrupt request register (irr)
 
+        inc counter_delay
         jmp default_irq_entry                   ; irq entry (updates basic variables)
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -713,6 +709,9 @@ colors:
 sprite_ptrs:
         ; $c0 ->  $c0 * 64 = $3000
         .byte $c5, $c6, $c7, $c0,  $c1, $c2, $c3, $c4
+
+counter_delay:
+        .byte 0
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
