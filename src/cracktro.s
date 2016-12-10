@@ -132,15 +132,11 @@ main_loop:
         sta counter_delay
 
 @l0:    lda counter_delay
-        cmp #128                                         ; wait two seconds
+        cmp #128                                        ; wait two seconds
         bne @l0
 
-        sei
-        ldx #<default_irq_entry
-        ldy #>default_irq_entry
-        stx $0314                                       ; set IRQ vector
-        sty $0315
-        cli
+        lda #0
+        sta $d01a                                       ; disable irq interrupt
 
         rts
 
@@ -150,17 +146,15 @@ main_loop:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 init_screen:
         sei
-        lda #$00
-        sta $dc0e                               ; cia1: cia control register a
         lda $d011                               ; vic control register 1
         and #$7f
         sta $d011                               ; vic control register 1
+
         lda #$32
         sta $d012                               ; raster position
+
         lda #$01
-        sta $d01a                               ; vic interrupt mask register (imr)
-        lda #$01
-        sta $dc0d                               ; cia1: cia interrupt control register
+        sta $d01a                               ; enable raster interrup
         cli
 
         ldx #$00                                ; display "cracked by..."
@@ -185,10 +179,10 @@ init_screen:
         lda #$c6                                ; $c6 = dec
         sta a16bd                               ; inc/dec raster position
 
-        lda #<scroll_txt
-        sta zp_scroll_addr_lo
-        lda #>scroll_txt
-        sta zp_scroll_addr_hi
+        ldx #<scroll_txt
+        ldy #>scroll_txt
+        stx zp_scroll_addr_lo
+        sty zp_scroll_addr_hi
         rts
 
 
@@ -220,6 +214,7 @@ irq_0:
         lda #$00
         sta $d020                               ; border color
         sta $d021                               ; background color 0
+
         lda #<irq_1
         sta $0314
         lda #>irq_1

@@ -52,10 +52,13 @@ rom_bsouti = $ffd2
 .export intro_main
 intro_main:
         sei
-        lda #<irq_0
-        sta $0314
-        lda #>irq_0
-        sta $0315
+        ldx #<irq_0
+        ldy #>irq_0
+        stx $0314
+        sty $0315
+
+        lda #1
+        sta $d01a                                       ; enable irq interrupt
         cli
 
         lda #$07
@@ -68,17 +71,20 @@ intro_main:
         sta zp_screen_row1_hi
         lda #$28
         sta zp_screen_row1_lo
+
         lda #$1b
         sta $d011                                       ; vic control register 1
-        lda #$32
+
+        lda #(50 + 25*8)
         sta $d012                                       ; raster position
+
         lda #$c8
         sta $d016                                       ; vic control register 2
 
-        lda #<scroll_txt
-        sta zp_scroll_addr_lo
-        lda #>scroll_txt
-        sta zp_scroll_addr_hi
+        ldx #<scroll_txt
+        ldy #>scroll_txt
+        stx zp_scroll_addr_lo
+        sty zp_scroll_addr_hi
 
         lda #$93
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
@@ -162,14 +168,15 @@ intro_main:
         sta $07fd
 
 .if .defined(__C128__)
-        lda #%00011110                                  ; charset = $3800, screen = $400
-        sta $0a2c                                       ; shadow for $d018
-
         lda #<p29cd
         sta $0a00                                       ; basic restart routine
         lda #>p29cd
         sta $0a01
 .endif
+
+        lda #%00011110                                  ; charset = $3800, screen = $400
+        sta $d018
+
 
         lda #%01000000
         sta $d010                                       ; sprites 0-7 msb of x coordinate
@@ -177,65 +184,93 @@ intro_main:
         lda #$0b
         jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
 
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
-        lda end_intro
-        beq main_loop
+        lda end_intro                                   ; end ?
+        beq @l0
+
+        lda #0
+        sta $d01a                                       ; disable interrups and return
         rts
 
-b28cd:  jmp check_space                                 ; mode = 4
+@l0:
+        lda irq_sync                                    ; should sync with irq?
+        bne main_loop
+
+        dec irq_sync
+
+        lda zp_scroll_mode
+        beq b28e7                                       ; 0 = normal scroll
+
+        cmp #$01
+        beq b28ed                                       ; 1 = fade out
+
+        cmp #$02
+        beq b28f3                                       ; 2 = fade in
+
+        cmp #$03
+        beq b28f9                                       ; 3 = unused
+
+        cmp #$04
+        beq b28cd                                       ; 4 = check space
+
+
+b28e7:  jsr do_scroll                                   ; mode = 0
+        jmp main_loop
+
+b28ed:  jsr do_fade_out                                 ; mode = 1
+        jmp main_loop
+
+b28f3:  jsr do_fade_in                                  ; mode = 2
+        jmp main_loop
+
+b28f9:  jsr $2a50                                       ; mode = 3
+        jmp main_loop                                   ; XXX: $2a50 is garbage
+
+b28cd:  jsr check_space                                 ; mode = 4
+        jmp main_loop
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void irq_0()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 irq_0:
-        lda zp_scroll_mode
-        beq b28e7                                       ; 0 = normal scroll
-        cmp #$01
-        beq b28ed                                       ; 1 = fade out
-        cmp #$02
-        beq b28f3                                       ; 2 = fade in
-        cmp #$03
-        beq b28f9                                       ; 3 = unused
-        cmp #$04
-        beq b28cd                                       ; 4 = check space
-        jmp default_irq_entry                           ; (irq) normal entry
+        asl $d019
 
-b28e7:  jsr do_scroll                                   ; mode = 0
-        jmp default_irq_entry
+        lda zp_scroll_speed
+        ora #%00010000                                  ; disable blank
+        sta $d011                                       ; smooth scroll y
 
-b28ed:  jsr do_fade_out                                 ; mode = 1
-        jmp default_irq_entry
+        inc irq_sync
 
-b28f3:  jsr do_fade_in                                  ; mode = 2
-        jmp default_irq_entry
-
-b28f9:  jsr $2a50                                       ; mode = 3
-        jmp default_irq_entry                           ; XXX: $2a50 is garbage
+        jmp default_irq_exit
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void do_scroll()
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 do_scroll:
-        lda zp_delay
-        beq b2907
         dec zp_delay
+        beq b2907
         rts
 
-b2907:  lda #$08
+b2907:  lda #$02
         sta zp_delay
-        lda zp_scroll_speed
-        and #$17
-        ora #$10
-        sta $d011                                       ;vic control register 1
-        lda zp_scroll_speed
-        cmp #$ff
-        beq b291d
-        dec zp_scroll_speed
+
+
+        ldx zp_scroll_speed
+        dex
+        txa
+        and #%00000111
+        sta zp_scroll_speed
+
+        cmp #05
+        beq do_the_scroll
         rts
 
-b291d:  lda #$07
-        sta zp_scroll_speed
+do_the_scroll:
+
+        inc $d020
 
         ldx #$08
 @l1:    ldy #$27
@@ -270,13 +305,13 @@ b291d:  lda #$07
         dey
         bpl @l2
 
-s2954:  lda #<$0400
-        sta zp_screen_row0_lo
-        lda #>$0400
-        sta zp_screen_row0_hi
-        sta zp_screen_row1_hi
-        lda #$28
-        sta zp_screen_row1_lo
+s2954:  ldx #<$0400
+        ldy #>$0400
+        stx zp_screen_row0_lo
+        sty zp_screen_row0_hi
+        sty zp_screen_row1_hi
+        ldx #$28
+        stx zp_screen_row1_lo
 
         clc
         lda zp_scroll_addr_lo
@@ -288,12 +323,14 @@ s2954:  lda #<$0400
         rts
 
 b2970:  jsr s2954
-        lda #<$1600                                     ; XXX: should be <scroll_txt
-        sta zp_scroll_addr_lo
-        lda #>$1600                                     ; XXX: should be >scroll_txt
-        sta zp_scroll_addr_hi
+        ldx #<scroll_txt                                ; XXX: it was fixed to $1600. fixed
+        ldy #>scroll_txt
+        stx zp_scroll_addr_lo
+        sty zp_scroll_addr_hi
         lda #$01
         sta zp_scroll_mode
+
+        dec $d020
         rts
 
 
@@ -304,21 +341,13 @@ check_space:
         lda $dc01
         and #$10
         beq @l0
-        jmp default_irq_entry                           ; (irq) normal entry
+        rts
 
 @l0:
 p29cd:
         lda #$01                                        ; finish intro
         sta end_intro
-
-        sei
-        ldx #<default_irq_entry
-        ldy #>default_irq_entry
-        stx $0314
-        sty $0315
-        cli
-
-        jmp default_irq_entry                           ; (irq) normal exit
+        rts
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -394,6 +423,9 @@ do_fade_in:
 end_intro:
         .byte 0                                         ; boolean: 1 if intro should end
 
+irq_sync:
+        .byte 0
+
 colors_fade_out:
         .byte $00, $00, $00, $00,  $0f, $01, $01, $01
         .byte $01, $01, $01, $01,  $01, $01, $01, $01
@@ -409,8 +441,7 @@ label_0:
 
 scroll_txt:
         .incbin "therace-scroll-map.bin"
-        .byte $20
-        .byte 0
+        .res 16,0
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; segment "SPRITES_INTRO" (@ $3200)
