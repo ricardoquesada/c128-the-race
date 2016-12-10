@@ -57,11 +57,11 @@ cracktro_main:
         jsr rom_jsetmsg                                 ; Control OS Messages
 
         sei
-        lda #<irq_0
-        sta $0314
-        lda #>irq_0
-        sta $0315
-        cli
+
+        ldx #<irq_0
+        ldy #>irq_0
+        stx $0314
+        sty $0315
 
         lda #$00
         sta zp_color_speed                              ; color_scroll_speed
@@ -119,6 +119,8 @@ cracktro_main:
         sta $da00,x
         inx
         bne @l4
+
+        cli
 
 main_loop:
         lda $dc01                                       ; cia1: data port register b
@@ -215,18 +217,17 @@ irq_0:
         sta $d020                               ; border color
         sta $d021                               ; background color 0
 
-        lda #<irq_1
-        sta $0314
-        lda #>irq_1
-        sta $0315
+        ldx #<irq_1
+        ldy #>irq_1
+        stx $0314
+        sty $0315
 
         jsr animate
 
-        lda $d019                               ; vic interrupt request register (irr)
-        sta $d019                               ; vic interrupt request register (irr)
+        asl $d019
 
         inc counter_delay
-        jmp default_irq_entry                   ; irq entry (updates basic variables)
+        jmp default_irq_exit                    ; irq exit
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; irq_1
@@ -258,12 +259,14 @@ irq_1:
         sta $d020                               ;border color
         sta $d021                               ;background color 0
 
-        lda #<irq_2
-        sta $0314
-        lda #>irq_2
-        sta $0315
+        ldx #<irq_2
+        ldy #>irq_2
+        stx $0314
+        sty $0315
 
-        jmp irq_exit
+        asl $d019
+
+        jmp default_irq_exit
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; irq_2
@@ -289,20 +292,12 @@ irq_2:
         sta $d020                               ; border color
         sta $d021                               ; background color 0
 
-        nop
-        nop
-        nop
-        nop
-        nop
+        ldx #<irq_3
+        ldy #>irq_3
+        stx $0314
+        sty $0315
 
-        lda #<irq_3
-        sta $0314
-        lda #>irq_3
-        sta $0315
-
-irq_exit:
-        lda $d019                               ; vic interrupt request register (irr)
-        sta $d019                               ; vic interrupt request register (irr)
+        asl $d019
 
         jmp default_irq_exit                    ; return from interrupt
 
@@ -327,12 +322,14 @@ irq_3:
         lda zp_scroll_speed
         sta $d016                               ; vic control register 2
 
-        lda #<irq_0
-        sta $0314
-        lda #>irq_0
-        sta $0315
+        ldx #<irq_0
+        ldy #>irq_0
+        stx $0314
+        sty $0315
 
-        jmp irq_exit
+        asl $d019
+
+        jmp default_irq_exit                    ; return from interrupt
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;

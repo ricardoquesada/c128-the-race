@@ -334,7 +334,7 @@ do_fade_out:
         bmi @l3
         rts
 
-@l3:    lda #$00
+@l3:    lda #$01
         sta delay_fadeout
 
         ldx zp_fade_out_idx
@@ -400,8 +400,8 @@ delay_fadeout:  .byte 0
 delay_fadein:   .byte 0
 
 colors_fade_out:
-        .byte $00, $00, $00, $00,  $0b, $0b, $0c, $0c
-        .byte $0f, $0f, $01, $01,  $01, $01, $01, $01
+        .byte $00, $00, $0b, $0b,  $0c, $0c, $0f, $0f
+        .byte $01, $01, $01, $01,  $01, $01, $01, $01
 
 colors_fade_in:
         .byte $01, $01, $01, $01,  $0f, $0f, $0f, $0f
