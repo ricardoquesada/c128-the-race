@@ -100,6 +100,7 @@ intro_main:
 
         lda #%01111111
         sta $d01d                                       ; sprites expand 2x horizontal (x)
+        sta $d015                                       ; sprite display enable
 
         lda #$00
         sta $d027                                       ; sprite 0 color
@@ -109,9 +110,6 @@ intro_main:
         sta $d02b                                       ; sprite 4 color
         sta $d02c                                       ; sprite 5 color
         sta $d02d                                       ; sprite 6 color
-
-        lda #%01111111
-        sta $d015                                       ; sprite display enable
 
         lda #$7a
         sta $d001                                       ; sprite 0 y pos

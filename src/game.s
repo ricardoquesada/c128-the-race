@@ -90,9 +90,6 @@ game_main:
         sta $0a01
 .endif
 
-        lda #$93
-        jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
-
 game_restart:
         sei
         lda #$00
@@ -100,21 +97,59 @@ game_restart:
         lda $d011                                       ; vic control register 1
         and #$7f
         sta $d011                                       ; vic control register 1
-        lda #$32
-        sta $d012                                       ; raster position
-        lda #$03
+
+        lda #%00000011                                  ; raster + sprite/char collision
         sta $d01a                                       ; vic interrupt mask register (imr)
+
         lda #$03
         sta $dc0d                                       ; cia1: cia interrupt control register
 
-        lda #<irq_0
-        sta $0314
-        lda #>irq_0
-        sta $0315
+        lda #$32
+        sta $d012                                       ; raster position
+
+        ldx #<irq_0
+        ldy #>irq_0
+        stx $0314
+        sty $0315
 
         lda #0
         sta sync_irq_0
         sta sync_irq_2
+
+        ldx #$00                                        ; clear screen
+        lda #$20
+@l1:    sta $0400,x
+        sta $0500,x
+        sta $0600,x
+        sta $06e8,x
+        dex
+        bne @l1
+
+        ldx #$27                                        ; map border
+@l5:    lda #$00
+        sta $0400,x
+        sta $0568,x
+        sta $0658,x
+        sta $07c0,x
+        dex
+        bpl @l5
+
+        ldx #$00                                        ; clear screen color
+        lda #13                                         ; default c128 color
+@l4:    sta $d800,x
+        sta $d900,x
+        sta $da00,x
+        sta $dae8,x
+        dex
+        bne @l4
+
+        ldx #$00
+@l2:    lda label_txt_p1,x
+        sta $0590,x
+        inx
+        cpx #$c8
+        bne @l2
+
 
         lda #$0f
         sta $d015                                       ; sprite display enable
@@ -127,34 +162,18 @@ game_restart:
 
         lda #$00                                        ; define sprite frame
         ldx #$00
-@l0:    sta $0fc0,x
+@l0:    sta $3200,x
         inx
         cpx #$40
         bne @l0
 
         lda #$0f                                        ; cont. with sprite frame
-        sta $0fc0
-        sta $0fc3
-        sta $0fc6
+        sta $3200
+        sta $3203
+        sta $3206
 
-        ldx #$27                                        ; clear screen
-@l1:    lda #$00
-        sta $0400,x
-        sta $0568,x
-        sta $0658,x
-        sta $07c0,x
-        dex
-        bpl @l1
-
-        ldx #$00
-@l2:    lda label_txt_p1,x
-        sta $0590,x
-        inx
-        cpx #$c8
-        bne @l2
-
-        lda #$3f                                        ; sprite pointers
-        sta $07f8                                       ; $3f = $fc0
+        lda #$c8                                        ; sprite pointers
+        sta $07f8                                       ; $c8 = $3200
         sta $07f9
         sta $07fa
         sta $07fb
@@ -206,8 +225,8 @@ init_vars_p1:
         lda #$00
         sta player_state_p1
         sta ready_to_start_p1
-        sta $0b00
-        sta $0b01
+        sta speed_lo_p1
+        sta speed_hi_p1
         sta zp_already_in_collision_p1
         sta zp_finished_p1
         sta $6a                                         ; ptr to map: LSB
@@ -269,8 +288,8 @@ init_vars_p1:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 init_vars_p2:
         lda #$00
-        sta $0b02
-        sta $0b03
+        sta speed_lo_p2
+        sta speed_hi_p2
         sta zp_already_in_collision_p2
 
         sta $80                                         ; ptr to map: LSB
@@ -359,9 +378,9 @@ scroll_p1:
         dec zp_speed_msb_p1
         bpl @l2
 
-        lda $0b00
+        lda speed_lo_p1
         sta zp_speed_lsb_p1
-        lda $0b01
+        lda speed_hi_p1
         sta zp_speed_msb_p1
         rts
 
@@ -463,9 +482,9 @@ scroll_p2:
         dec zp_speed_msb_p2
         bpl @l2
 
-        lda $0b02
+        lda speed_lo_p2
         sta zp_speed_lsb_p2
-        lda $0b03
+        lda speed_hi_p2
         sta zp_speed_msb_p2
         rts
 
@@ -630,35 +649,35 @@ read_joy_p1:
         beq @down
 @end:   rts
 
-@left:  lda $0b01
+@left:  lda speed_hi_p1
         beq @l5
-        dec $0b01
+        dec speed_hi_p1
         dec $05b2
 
 @l4:    lda #$01
         sta $1b
         jmp @end
 
-@l5:    lda $0b00
+@l5:    lda speed_lo_p1
         cmp #$04
         beq @l4
-        inc $0b00
+        inc speed_lo_p1
         dec $05b2
         jmp @l4
 
-@right: lda $0b00
+@right: lda speed_lo_p1
         beq @l7
-        dec $0b00
+        dec speed_lo_p1
         inc $05b2
 
 @l6:    lda #$01
         sta $1b
         jmp @end
 
-@l7:    lda $0b01
+@l7:    lda speed_hi_p1
         cmp #$04
         beq @l6
-        inc $0b01
+        inc speed_hi_p1
         inc $05b2
         jmp @l6
 
@@ -821,33 +840,33 @@ read_joy_p2:
         beq @down
 @end:   rts
 
-@left:  lda $0b03
+@left:  lda speed_hi_p2
         beq @l4
-        dec $0b03
+        dec speed_hi_p2
         dec $0652
 @l3:    lda #$01
         sta $1d
         jmp @end
 
-@l4:    lda $0b02
+@l4:    lda speed_lo_p2
         cmp #$04
         beq @l3
-        inc $0b02
+        inc speed_lo_p2
         dec $0652
         jmp @l3
 
-@right: lda $0b02
+@right: lda speed_lo_p2
         beq @l6
-        dec $0b02
+        dec speed_lo_p2
         inc $0652
 @l5:    lda #$01
         sta $1d
         jmp @end
 
-@l6:    lda $0b03
+@l6:    lda speed_hi_p2
         cmp #$04
         beq @l5
-        inc $0b03
+        inc speed_hi_p2
         inc $0652
         jmp @l5
 
@@ -1416,8 +1435,6 @@ b1e7a:  lda $dc01                                       ; cia1: data port regist
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 p1eb0:
-        lda #$93
-        jsr rom_bsouti                                  ; $ffd2 (ind) ibsout output vector, chrout [ef79]
         jmp game_restart
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1438,6 +1455,10 @@ player_state_p2:                .byte $00
 ready_to_start_p2:              .byte $00
 a1e06:                          .byte $12
 
+speed_lo_p1:                    .byte 0
+speed_hi_p1:                    .byte 0
+speed_lo_p2:                    .byte 0
+speed_hi_p2:                    .byte 0
 
 label_txt_p1:
         .incbin "therace-game-central-map.bin"
