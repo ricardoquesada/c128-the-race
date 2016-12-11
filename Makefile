@@ -28,11 +28,12 @@ res:
 therace128: ${SRC}
 	echo "Compiling..."
 	cl65 -d -g -Ln bin/$@.sym -o bin/$@.prg -u __EXEHDR__ -t c128 -C $@.cfg $^
+	exomizer sfx sys -x1 -Di_line_number=2016 -t128 -o bin/$@_exo.prg bin/$@.prg
 
 d71:
 	echo "Generating d71 file..."
 	$(C1541) -format "the race,rq" d71 $(D71_IMAGE)
-	$(C1541) $(D71_IMAGE) -write bin/therace128.prg therace
+	$(C1541) $(D71_IMAGE) -write bin/therace128_exo.prg therace
 	$(C1541) $(D71_IMAGE) -list
 
 run128:
@@ -46,11 +47,12 @@ run128:
 therace64: ${SRC}
 	echo "Compiling..."
 	cl65 -d -g -Ln bin/$@.sym -o bin/$@.prg -u __EXEHDR__ -t c64 -C $@.cfg $^
+	exomizer sfx sys -x1 -Di_line_number=2016 -t64 -o bin/$@_exo.prg bin/$@.prg
 
 d64:
 	echo "Generating d64 file..."
 	$(C1541) -format "the race,rq" d64 $(D64_IMAGE)
-	$(C1541) $(D64_IMAGE) -write bin/therace64.prg therace
+	$(C1541) $(D64_IMAGE) -write bin/therace64_exo.prg therace
 	$(C1541) $(D64_IMAGE) -list
 
 run64:

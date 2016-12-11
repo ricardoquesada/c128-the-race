@@ -167,6 +167,8 @@ intro_main:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
+        jsr check_space
+
         lda end_intro                                   ; end ?
         beq @l0
 
@@ -189,12 +191,6 @@ main_loop:
         cmp #$02
         beq b28f3                                       ; 2 = fade in
 
-        cmp #$03
-        beq b28f9                                       ; 3 = unused
-
-        cmp #$04
-        beq b28cd                                       ; 4 = check space
-
 @error: jmp @error
 
 
@@ -207,11 +203,6 @@ b28ed:  jsr do_fade_out                                 ; mode = 1
 b28f3:  jsr do_fade_in                                  ; mode = 2
         jmp main_loop
 
-b28f9:  jsr $2a50                                       ; mode = 3
-        jmp main_loop                                   ; XXX: $2a50 is garbage
-
-b28cd:  jsr check_space                                 ; mode = 4
-        jmp main_loop
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; void irq_0()
@@ -380,11 +371,6 @@ do_fade_in:
         bne @l1
 
         dec zp_fade_in_idx
-        bmi @l2
-        rts
-
-@l2:    lda #$04
-        sta zp_scroll_mode
         rts
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
