@@ -12,7 +12,7 @@ all: res bin64 bin128
 bin128: therace128 d71 run128
 bin64: therace64 d64 run64
 
-SRC=src/main.s src/intro.s src/cracktro.s src/music.s src/game.s
+SRC=src/main.s src/intro.s src/cracktro.s src/music.s src/game.s src/utils.s
 
 res:
 	echo "Compressing resources..."

@@ -7,9 +7,10 @@
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; imports
+; Imports
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 .import music_play, music_init
+.import ut_clear_screen, ut_clear_color
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; Macros
@@ -78,9 +79,8 @@ rom_restor = $ff8a
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 .export game_main
 game_main:
-        jsr rom_restor
-        jsr rom_ioinit
-        jsr rom_cint
+        lda #$1b
+        sta $d011                                       ; restore y position
 
 .if .defined(__C128__)
         ldx #<nmi_handler
@@ -115,14 +115,8 @@ game_restart:
         sta sync_irq_0
         sta sync_irq_2
 
-        ldx #$00                                        ; clear screen
         lda #$20
-@l1:    sta $0400,x
-        sta $0500,x
-        sta $0600,x
-        sta $06e8,x
-        dex
-        bne @l1
+        jsr ut_clear_screen
 
         ldx #$27                                        ; map border
 @l5:    lda #$00
@@ -133,14 +127,8 @@ game_restart:
         dex
         bpl @l5
 
-        ldx #$00                                        ; clear screen color
         lda #13                                         ; default c128 color
-@l4:    sta $d800,x
-        sta $d900,x
-        sta $da00,x
-        sta $dae8,x
-        dex
-        bne @l4
+        jsr ut_clear_color
 
         ldx #$00
 @l2:    lda label_txt_p1,x
